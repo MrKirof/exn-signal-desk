@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -9,11 +10,21 @@ import { annotateCapture } from "../../../public/extension/capture-provenance.js
 import { collectorToSpot, parseCollector } from "./collector.ts";
 import { feedClaim } from "./source-label.ts";
 import { EXNESS_BROWSER_CAPTURE_VERIFIED } from "./provenance.ts";
+import { bearer, normalizeDeskUrl } from "../../../public/extension/desk-target.js";
 
 test("desktop startup ignores a hosted DATABASE_URL", () => {
   const env = prepareDesktopEnv({ DATABASE_URL: "postgres://hosted.example/db", DESK_DATA: "/tmp/local-desk" });
   assert.equal("DATABASE_URL" in env, false);
   assert.equal(env.DESK_DATA, "/tmp/local-desk");
+});
+
+test("extension pairing accepts only the fixed loopback receiver and a non-empty token", () => {
+  assert.deepEqual(normalizeDeskUrl("http://127.0.0.1:8090"), { ok: true, url: "http://127.0.0.1:8090" });
+  assert.equal(normalizeDeskUrl("http://localhost:8090").ok, false);
+  assert.equal(normalizeDeskUrl("http://127.0.0.1:8091").ok, false);
+  assert.equal(normalizeDeskUrl("https://127.0.0.1:8090").ok, false);
+  assert.equal(bearer("").ok, false);
+  assert.deepEqual(bearer("paired-token"), { ok: true, token: "paired-token" });
 });
 
 test("missing, empty, and invalid tokens are rejected, and reset revokes the old one", () => {
@@ -45,6 +56,17 @@ test("local receiver rejects bad tokens, accepts a candle, and does not place or
     const healthBody = await health.json();
     assert.equal(healthBody.databaseUrl, false);
     assert.equal(JSON.stringify(healthBody).includes(started.token), false);
+    const rebindingHost = await new Promise<number>((resolve) => {
+      const req = http.request(
+        { hostname: "127.0.0.1", port: started.port, path: "/api/health", headers: { host: "public.example" } },
+        (res) => {
+          res.resume();
+          resolve(res.statusCode ?? 0);
+        },
+      );
+      req.end();
+    });
+    assert.equal(rebindingHost, 403);
     const missing = await fetch(base + "/api/collector");
     assert.equal(missing.status, 401);
     const empty = await fetch(base + "/api/collector", { headers: { "x-desk-token": "   " } });
@@ -88,6 +110,14 @@ test("local receiver rejects bad tokens, accepts a candle, and does not place or
     assert.notEqual(spot.source, "exness");
     assert.equal(feedClaim(spot.source, !!spot.demo).liveExness, false);
     assert.equal(EXNESS_BROWSER_CAPTURE_VERIFIED, false);
+    const invalidHost = annotateCapture(
+      { tab: { active: true, url: "https://exness.com.evil.example/trade" }, url: "https://exness.com.evil.example/trade" },
+      { asset: "EURUSD", demo: false, bars: [] },
+    );
+    assert.equal(invalidHost.capture.fromTab, false);
+    assert.equal(invalidHost.capture.host, "");
+    const inactiveTab = annotateCapture({ tab: { active: false, url: "https://my.exness.com/trade" } }, { asset: "EURUSD", demo: false, bars: [] });
+    assert.equal(inactiveTab.capture.fromTab, false);
     const fixture = annotateCapture(sender, { ...snap, demo: true, venue: "fixture" });
     const parsedFixture = parseCollector(fixture);
     assert.equal(parsedFixture.ok, true);

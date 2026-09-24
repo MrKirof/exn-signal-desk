@@ -31,6 +31,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type !== "exn-snapshot") return;
   const snap = annotateCapture(sender, msg.snapshot);
+  if (snap.capture.fromTab !== true) {
+    sendResponse({ ok: false, error: "Capture rejected. Use an active Exness terminal tab." });
+    return;
+  }
   chrome.storage.local.set({ exn_last_snapshot: snap });
   void push(snap).then((res) => sendResponse(res));
   return true;
@@ -41,8 +45,7 @@ async function save(url, token) {
   if (!desk.ok) return desk;
   const auth = bearer(token);
   if (!auth.ok) return auth;
-  const origin = `${desk.url}/*`;
-  const granted = await chrome.permissions.request({ origins: [origin] });
+  const granted = await chrome.permissions.request({ origins: ["http://127.0.0.1/*"] });
   if (!granted) return { ok: false, error: "Chrome did not allow that desk URL." };
   await chrome.storage.local.set({ [URL_KEY]: desk.url, [TOKEN_KEY]: auth.token });
   return { ok: true };

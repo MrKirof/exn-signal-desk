@@ -377,4 +377,20 @@ export interface BacktestReport {
   leakageSafe: true;
   note: string;
   blocks: { reason: string; n: number }[];
+  forecastValidation?: {
+    softwareOnly: true;
+    exnessPerformance: false;
+    source: string;
+    symbol: AssetId;
+    timeframe: Timeframe;
+    horizonBars: number;
+    lastClosedTs: number | null;
+    decided: number;
+    abstained: number;
+    directionHits: number;
+    directionHitRate: number | null;
+    magnitudeMaePips: number | null;
+    intervalCoverage: number | null;
+    note: string;
+  };
 }

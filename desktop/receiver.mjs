@@ -66,11 +66,15 @@ export function startReceiver(opts) {
   prepareDesktopEnv(process.env);
   ensureToken(opts.dataDir);
   const uiDir = path.resolve(opts.uiDir);
+  let boundPort = opts.port ?? 8090;
   /** @type {{ at: number, body: unknown } | null} */
   let latest = null;
 
   const server = http.createServer(async (req, res) => {
     try {
+      if (req.headers.host !== `127.0.0.1:${boundPort}`) {
+        return send(res, 403, { ok: false, error: "Only the configured loopback host is accepted." });
+      }
       const url = new URL(req.url || "/", "http://127.0.0.1");
       if (req.method === "OPTIONS") return send(res, 204, "");
       if (url.pathname === "/api/order" || url.pathname === "/api/trade" || url.pathname === "/api/buy" || url.pathname === "/api/sell") {
@@ -96,20 +100,11 @@ export function startReceiver(opts) {
         if (req.method === "PUT" || req.method === "POST") {
           const body = await readBody(req);
           latest = { at: Date.now(), body };
-          const snap = body && typeof body === "object" ? body : {};
-          const bars = Array.isArray(snap.bars) ? snap.bars : [];
           fs.mkdirSync(opts.dataDir, { recursive: true });
-          fs.writeFileSync(
-            path.join(opts.dataDir, "candles.json"),
-            JSON.stringify({
-              at: latest.at,
-              asset: snap.asset || snap.symbol || "",
-              timeframe: snap.timeframe || "",
-              capture: snap.capture || null,
-              demo: snap.demo === true,
-              bars,
-            }),
-          );
+          const destination = path.join(opts.dataDir, "candles.json");
+          const temporary = `${destination}.tmp`;
+          fs.writeFileSync(temporary, JSON.stringify({ at: latest.at, snapshot: body }), { encoding: "utf8", mode: 0o600 });
+          fs.renameSync(temporary, destination);
           return send(res, 200, { ok: true });
         }
         return send(res, 405, { ok: false, error: "method" });
@@ -152,6 +147,7 @@ export function startReceiver(opts) {
         reject(new Error("refused a non-loopback bind"));
         return;
       }
+      boundPort = addr.port;
       resolve({ server, port: addr.port, token: readToken(opts.dataDir) });
     });
   });

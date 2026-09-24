@@ -64,7 +64,7 @@ export function SignalPanel() {
   const forecast = forecastMove({
     symbol: asset,
     timeframe,
-    source: health.source,
+    source: origin,
     horizonBars,
     stale: feedStale,
     spreadPrice: spread,
@@ -151,6 +151,7 @@ export function SignalPanel() {
             {forecast.source}
             {forecast.lastClosedTs ? ` · ${new Date(forecast.lastClosedTs).toISOString()}` : ""}
           </p>
+          <p className="mt-1 text-xs text-muted">Uses closed candles only; the current forming candle is excluded.</p>
           <p className="mt-1 text-xs text-muted">{forecast.note}</p>
           <p className="mt-1 text-xs text-subtle">{forecast.invalidation}</p>
         </div>

@@ -163,6 +163,37 @@ export function BacktestPanel() {
       {report && (
         <>
           <p className="text-sm text-fg">{report.note}</p>
+          {report.forecastValidation && (
+            <div className="panel space-y-3 p-3">
+              <div>
+                <p className="kicker">Closed-candle forecast check</p>
+                <p className="mt-1 text-sm text-fg">
+                  {report.forecastValidation.symbol} {report.forecastValidation.timeframe} · next {report.forecastValidation.horizonBars} candles · {report.forecastValidation.source}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  Last closed: {report.forecastValidation.lastClosedTs == null ? "—" : new Date(report.forecastValidation.lastClosedTs).toISOString()}
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Stat
+                  label="Direction hit rate"
+                  value={report.forecastValidation.directionHitRate == null ? "—" : `${(report.forecastValidation.directionHitRate * 100).toFixed(1)}%`}
+                />
+                <Stat label="Direction sample" value={`${report.forecastValidation.decided} decided · ${report.forecastValidation.abstained} WAIT`} />
+                <Stat
+                  label="Magnitude MAE"
+                  value={report.forecastValidation.magnitudeMaePips == null ? "—" : `${report.forecastValidation.magnitudeMaePips.toFixed(1)} pips`}
+                />
+                <Stat
+                  label="Interval coverage"
+                  value={report.forecastValidation.intervalCoverage == null ? "—" : `${(report.forecastValidation.intervalCoverage * 100).toFixed(1)}%`}
+                />
+              </div>
+              <p className="text-xs text-muted">
+                {report.forecastValidation.note} Direction probabilities are not emitted, so Brier and log-loss are unavailable.
+              </p>
+            </div>
+          )}
           {report.blocks.length > 0 && (
             <div className="panel p-3">
               <p className="kicker mb-2">Why candles were refused</p>
