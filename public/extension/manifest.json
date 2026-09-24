@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "EXN Signal Lab Collector",
+  "version": "3.3.0",
+  "description": "Reads Exness quotes and sends them to the hosted desk URL you set. Requires that token. Does not place trades.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "EXN Collector",
+    "default_popup": "options.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "options.html",
+  "permissions": ["storage"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "host_permissions": [
+    "https://*.exness.com/*",
+    "https://exness.com/*",
+    "https://*.exness.global/*",
+    "https://*.exness.app/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.exness.com/*",
+        "https://exness.com/*",
+        "https://*.exness.global/*",
+        "https://*.exness.app/*"
+      ],
+      "js": ["collector-hook.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://*.exness.com/*",
+        "https://exness.com/*",
+        "https://*.exness.global/*",
+        "https://*.exness.app/*"
+      ],
+      "js": ["collector.js", "badge.js"],
+      "css": ["badge.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

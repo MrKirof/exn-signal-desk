@@ -1,0 +1,16 @@
+EXN Signal Lab — Windows desktop
+
+Install the desktop app and the Chrome extension separately. No hosted site is required.
+
+1. Run the Windows EXE (or unzip the Windows build and run EXN Signal Lab.exe).
+2. The app listens only on http://127.0.0.1:8090. It does not use a hosted database.
+   Candles and the pairing token are files under the app's local user-data folder.
+3. Settings → Listen. The token is shown in the window. It is not available from an open web request.
+4. Unzip exn-collector.zip. Chrome → Extensions → Developer mode → Load unpacked → the exn-collector folder.
+5. In the extension, set the address to http://127.0.0.1:8090 and paste the token. Save. Test link.
+6. Open the Exness web terminal and keep that tab active. Do not click Buy or Sell.
+7. Compare one closed candle: source label, symbol, timeframe, timestamp, and OHLC.
+   Fixture data stays "Fixture · test". Live Exness is not claimed until that comparison succeeds.
+8. Reset token in the app if you want to revoke the old one. Paste the new token into the extension.
+
+The app does not place orders. Optional public-market panels may request public data; the collector path does not.

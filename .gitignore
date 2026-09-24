@@ -1,0 +1,6 @@
+node_modules
+dist-desktop
+.vercel
+artifacts
+.desk-data
+*.exe

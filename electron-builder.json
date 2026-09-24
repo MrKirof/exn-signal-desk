@@ -1,0 +1,21 @@
+{
+  "appId": "lab.exn.signaldesk",
+  "productName": "EXN Signal Lab",
+  "directories": { "output": "dist-desktop" },
+  "files": [
+    "desktop/main.cjs",
+    "desktop/preload.cjs",
+    "desktop/receiver.mjs",
+    "desktop/pair.mjs",
+    "desktop/INSTALL.txt",
+    "desktop/dist-ui/**/*",
+    "public/exn-collector.zip",
+    "package.json"
+  ],
+  "extraMetadata": { "main": "desktop/main.cjs" },
+  "win": {
+    "target": ["portable", "zip"],
+    "signAndEditExecutable": false
+  },
+  "portable": { "artifactName": "EXN-Signal-Lab-portable.exe" }
+}
