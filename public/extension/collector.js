@@ -160,18 +160,48 @@
     if (u === "15S") return "15s";
     return "1m";
   }
-  function harvestDom() {
-    const text = (document.body && document.body.innerText) || "";
-    const m = text.match(/\b(EUR\/USD|GBP\/USD|USD\/JPY|XAU\/USD|BTC\/USD|EURUSD|GBPUSD|XAUUSD|BTCUSD)\b/i);
-    if (m) {
-      const named = normAsset(m[1]);
-      if (named) {
-        state.asset = named;
-        state.assetSeen = true;
+  function pageText() {
+    const parts = [];
+    let n = 0;
+    const walk = (node) => {
+      if (!node || n > 20000 || parts.join(" ").length > 80000) return;
+      n += 1;
+      if (node.nodeType === 3) {
+        const bit = node.textContent || "";
+        if (bit.trim()) parts.push(bit);
+        return;
       }
+      if (node.shadowRoot) walk(node.shadowRoot);
+      const kids = node.childNodes || [];
+      for (let i = 0; i < kids.length; i += 1) walk(kids[i]);
+    };
+    walk(document.body || document.documentElement);
+    return parts.join(" ");
+  }
+  function harvestDom() {
+    const text = pageText();
+    const header = typeof parseChartText === "function" ? parseChartText(text) : { asset: "", bar: null, timeframe: "" };
+    if (header.asset) {
+      state.asset = header.asset;
+      state.assetSeen = true;
     }
-    const tf = text.match(/\b(M1|M5|M15|M30|H1|1m|5m|15m|30m|1h|15s)\b/i);
-    if (tf) state.timeframe = readTf(tf[1]);
+    if (header.timeframe) state.timeframe = header.timeframe;
+    if (header.bar) {
+      state.price = header.bar.close;
+      const ms = barMs(state.timeframe);
+      const t = Math.floor(Date.now() / ms) * ms;
+      const row = { t, open: header.bar.open, high: header.bar.high, low: header.bar.low, close: header.bar.close, volume: 1 };
+      const last = state.bars[state.bars.length - 1];
+      if (!last || last.t !== t) state.bars.push(row);
+      else {
+        last.high = Math.max(last.high, row.high);
+        last.low = Math.min(last.low, row.low);
+        last.close = row.close;
+      }
+      if (state.bars.length > 400) state.bars.shift();
+      ship(false);
+      return;
+    }
     const nodes = document.querySelectorAll("[class*='bid'],[class*='ask'],[class*='price'],[class*='quote']");
     for (const el of nodes) {
       const t = (el.textContent || "").replace(/,/g, "");

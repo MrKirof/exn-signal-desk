@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EXN Signal Lab Collector",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "description": "Reads Exness quotes and sends them to the hosted desk URL you set. Requires that token. Does not place trades.",
   "icons": {
     "16": "icons/icon16.png",
@@ -46,10 +46,10 @@
         "https://*.exness.global/*",
         "https://*.exness.app/*"
       ],
-      "js": ["collector.js", "badge.js"],
+      "js": ["chart-text.js", "collector.js", "badge.js"],
       "css": ["badge.css"],
       "run_at": "document_idle",
-      "all_frames": false
+      "all_frames": true
     }
   ]
 }

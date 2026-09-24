@@ -1,4 +1,5 @@
 (() => {
+  if (window !== window.top) return;
   if (document.getElementById("exn-collector-badge")) return;
   const el = document.createElement("div");
   el.id = "exn-collector-badge";
