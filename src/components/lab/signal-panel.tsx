@@ -12,6 +12,7 @@ import { bookRisk, skillScan } from "@/lib/lab/skill-desk";
 import { readJev } from "@/lib/lab/jev";
 import { dataOrigin, originLabel } from "@/lib/lab/source-label";
 import { readSmc, riskWarning, timeframeMatrix } from "@/lib/lab/context-filters";
+import { projectTargets } from "@/lib/lab/targets";
 import { DEFAULT_HORIZON_BARS, HORIZON_CHOICES, forecastMove } from "@/lib/lab/forecast";
 
 export function SignalPanel() {
@@ -67,6 +68,7 @@ export function SignalPanel() {
   const matrix = timeframeMatrix(closedBars);
   const standAside = riskWarning(closedBars, shown?.cancelledReason?.includes("High-impact") ? shown.cancelledReason : null);
   const riskLine = shown?.cancelledReason?.startsWith("High Risk") ? shown.cancelledReason : standAside.warning;
+  const projection = dir === "BUY" || dir === "SELL" ? projectTargets(dir, price > 0 ? price : (lastClosed?.close ?? 0), closedBars) : null;
   const forecast = forecastMove({
     symbol: asset,
     timeframe,
@@ -150,6 +152,29 @@ export function SignalPanel() {
           <p className="mt-1">{smc.fvg}</p>
           <p className="mt-1">{smc.liquidity}</p>
         </div>
+        {projection ? (
+          <div className="mt-3 text-left">
+            <p className="kicker mb-2">{projection.side === "BUY" ? "Long projection" : "Short projection"}</p>
+            <div className="relative h-3 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="absolute inset-y-0 w-2/3"
+                style={{
+                  background: projection.side === "BUY" ? "#22c55e" : "#ef4444",
+                  left: projection.side === "BUY" ? "0" : "auto",
+                  right: projection.side === "BUY" ? "auto" : "0",
+                }}
+              />
+              <div className="absolute inset-y-0 w-px bg-white" style={{ left: projection.side === "BUY" ? "38%" : "62%" }} />
+            </div>
+            <div className="mt-2 flex justify-between font-mono text-xs">
+              <span>{projection.side === "BUY" ? "Now" : "Target 2"} {fmtPx(asset, projection.side === "BUY" ? projection.price : projection.target2)}</span>
+              <span>Target 1 {fmtPx(asset, projection.target1)}</span>
+              <span>{projection.side === "BUY" ? "Target 2" : "Now"} {fmtPx(asset, projection.side === "BUY" ? projection.target2 : projection.price)}</span>
+            </div>
+            <p className="mt-1 text-xs text-muted">{projection.target1Why}</p>
+            <p className="text-xs text-muted">{projection.target2Why} ATR {fmtPx(asset, projection.atr)}.</p>
+          </div>
+        ) : null}
         <div className="mt-3 text-left">
           <div className="flex items-center justify-between gap-2">
             <p className="kicker">Move forecast</p>
