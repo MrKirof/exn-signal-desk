@@ -6,7 +6,7 @@ import path from "node:path";
  * @param {{ tape: { writeMany: (rows: { at: number, body: unknown }[]) => void, close?: () => void }, dataDir: string, flushMs?: number }} opts
  */
 export function createDataManager(opts) {
-  const flushMs = opts.flushMs ?? 100;
+  const flushMs = opts.flushMs ?? 15_000;
   /** @type {{ at: number, body: unknown } | null} */
   let latest = null;
   /** @type {{ at: number, body: unknown }[]} */

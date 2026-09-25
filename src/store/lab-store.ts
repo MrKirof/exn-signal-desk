@@ -155,6 +155,7 @@ let collectorListenTimer: number | null = null;
 let lastCollectorAt = 0;
 let universeBusy = false;
 let lastUniverse = 0;
+let paintTimer: ReturnType<typeof setTimeout> | null = null;
 let engineOn = false;
 let pageHooked = false;
 
@@ -552,6 +553,24 @@ function applyIncoming(
   });
 }
 
+function schedulePaint(set: (p: Partial<LabSnapshot>) => void, get: () => LabSnapshot) {
+  if (paintTimer != null) return;
+  paintTimer = setTimeout(() => {
+    paintTimer = null;
+    if (!book) return;
+    set({
+      price: book.price,
+      quoteBid,
+      quoteAsk,
+      forming: book.forming,
+      collectorLive: true,
+      collectorDemo,
+      health: { ...get().health, source: feedMode },
+      now: Date.now(),
+    });
+  }, 150);
+}
+
 function adoptCollector(set: (p: Partial<LabSnapshot>) => void, get: () => LabSnapshot, raw: unknown) {
   const parsed = parseCollector(raw);
   if (!parsed.ok) return parsed.error;
@@ -575,16 +594,7 @@ function adoptCollector(set: (p: Partial<LabSnapshot>) => void, get: () => LabSn
         low: Math.min(book.forming.low, snap.price, last.low),
         receivedAt: Date.now(),
       };
-      set({
-        price: snap.price,
-        quoteBid: snap.bid,
-        quoteAsk: snap.ask,
-        forming: book.forming,
-        collectorLive: true,
-        collectorDemo: snap.source === "fixture",
-        health: { ...get().health, source: feedMode },
-        now: Date.now(),
-      });
+      schedulePaint(set, get);
       return null;
     } else if (last) {
       book.forming = {
@@ -598,26 +608,10 @@ function adoptCollector(set: (p: Partial<LabSnapshot>) => void, get: () => LabSn
         receivedAt: Date.now(),
         closed: false,
       };
-      set({
-        price: snap.price,
-        quoteBid: snap.bid,
-        quoteAsk: snap.ask,
-        forming: book.forming,
-        collectorLive: true,
-        collectorDemo: snap.source === "fixture",
-        health: { ...get().health, source: feedMode },
-        now: Date.now(),
-      });
+      schedulePaint(set, get);
       return null;
     } else {
-      set({
-        price: snap.price,
-        quoteBid: snap.bid,
-        quoteAsk: snap.ask,
-        collectorLive: true,
-        health: { ...get().health, source: feedMode },
-        now: Date.now(),
-      });
+      schedulePaint(set, get);
       return null;
     }
   }

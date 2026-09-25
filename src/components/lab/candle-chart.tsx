@@ -46,10 +46,14 @@ export function CandleChart({
     const w = box.w || canvas.parentElement?.clientWidth || 0;
     const h = box.h || canvas.parentElement?.clientHeight || 0;
     if (w < 8 || h < 8) return;
-    canvas.width = Math.floor(w * dpr);
-    canvas.height = Math.floor(h * dpr);
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${h}px`;
+    const nextW = Math.floor(w * dpr);
+    const nextH = Math.floor(h * dpr);
+    if (canvas.width !== nextW || canvas.height !== nextH) {
+      canvas.width = nextW;
+      canvas.height = nextH;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+    }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const css = getComputedStyle(document.documentElement);
