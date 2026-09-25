@@ -19,13 +19,15 @@ import type {
 } from "@/lib/lab/layers/domain";
 import { ASSETS, DEFAULT_SETTINGS, MAX_HOLD_BARS, MODEL_VERSION, TIMEFRAME_SEC, assetMeta, isTrade, mulberry32 } from "@/lib/lab/layers/domain";
 import { bookFromSpot, candlesFromSpot, collectorToSpot, demoCollectorFromBars, generateHistory, normalizeBook, parseCollector, stepMarket, type MarketBook, type SpotSnapshot } from "@/lib/lab/layers/market";
-import { analyze, atr, backtest, emptyModel, PLAYBOOK, projectOutlook, similarWinRate, type MarketMood, type MarketOutlook } from "@/lib/lab/layers/signal";
+import { analyze, atr, emptyModel, PLAYBOOK, projectOutlook, similarWinRate, type MarketMood, type MarketOutlook } from "@/lib/lab/layers/signal";
 import { applyOutcome, emptyManage, emptyRisk, expectedValue, exnessMark, exnessOpen, manageOpen, mindGate, riskBlock, settlePath, settleSignal, sizeStake, spreadFor, type TradeManage } from "@/lib/lab/layers/risk";
-import { audit, bucketStats, calibrationFactor, closeBookRow, groupPerf, loadCandles, loadModel, loadOperations, loadOutcomes, longestLose, maxDrawdown, maybeTrain, openBookRow, pinMemory, profitFactor, putCandles, putModel, putOperation, putOutcome, putPrediction, rememberPlaybook, scoreOutcomes, seedNews, usageEstimate, wipePersonal, type BookRow } from "@/lib/lab/layers/memory";
+import { audit, calibrationFactor, closeBookRow, loadCandles, loadModel, loadOperations, loadOutcomes, maybeTrain, openBookRow, pinMemory, putCandles, putModel, putOperation, putOutcome, putPrediction, rememberPlaybook, seedNews, usageEstimate, type BookRow } from "@/lib/lab/layers/memory";
 import { postDesk } from "@/lib/lab/layers/agents";
 import { shouldReplaceSignal } from "@/lib/lab/signal-hold";
-import { DEFAULT_HORIZON_BARS, scoreForecast } from "@/lib/lab/forecast";
-import { feedClaim } from "@/lib/lab/source-label";
+import { backtestActions } from "@/store/slices/backtest";
+import { memoryActions } from "@/store/slices/memory";
+import { riskActions } from "@/store/slices/risk";
+import { signalActions } from "@/store/slices/signal";
 
 export interface OpenTrade {
   signal: Signal;
@@ -1404,102 +1406,10 @@ export const useLab = create<LabSnapshot & LabActions>((set, get) => ({
       });
   },
   setView: (v) => set({ view: v }),
-  patchSettings: (p) => {
-    const settings = { ...get().settings, ...p };
-    if (p.bankroll != null && Number.isFinite(p.bankroll)) {
-      const b = Math.max(10, Math.round(p.bankroll * 100) / 100);
-      settings.bankroll = b;
-      const risk = get().risk;
-      set({
-        settings,
-        risk: { ...risk, bankroll: b, equity: b, peakEquity: Math.max(risk.peakEquity, b) },
-        toast: `Balance set to $${b.toLocaleString()}`,
-      });
-    } else {
-      set({ settings });
-    }
-    try {
-      window.localStorage.setItem(
-        "exn-account",
-        JSON.stringify({ bankroll: settings.bankroll, leverageCap: settings.leverageCap, riskPercent: settings.riskPercent }),
-      );
-    } catch {
-      /* ignore quota */
-    }
-    postDesk({ action: "file", name: "settings.json", value: settings });
-  },
-  paper: () => {
-    set({ toast: "Read only. This desk does not place an order." });
-  },
-  flatten: () => {
-    set({ toast: "Read only. Nothing to close.", open: null, manage: null });
-  },
-  skip: () =>
-    set({
-      signal: get().signal
-        ? { ...get().signal!, direction: "WAIT", lifecycle: "EXPIRED", cancelledReason: "Skipped" }
-        : null,
-      lifecycle: "IDLE",
-    }),
-  toggleKill: () => {
-    const killed = !get().risk.killed;
-    set({ risk: { ...get().risk, killed }, toast: killed ? "Kill-switch ON" : "Kill-switch OFF" });
-  },
-  requestResetRisk: () => set({ resetOpen: true }),
-  confirmResetRisk: () => set({ risk: emptyRisk(get().settings.bankroll), resetOpen: false, toast: "Risk state reset" }),
-  cancelResetRisk: () => set({ resetOpen: false }),
-  runBacktest: () => {
-    const s = get();
-    set({ backtestBusy: true, view: "backtest" });
-    window.setTimeout(() => {
-      const live = s.candles;
-      const useLive = feedMode !== "simulated" && live.length >= 80;
-      const hist = useLive
-        ? live
-        : generateHistory({ asset: s.asset, timeframe: s.timeframe, bars: 720, seed: 77 }).candles;
-      const source = useLive ? feedClaim(s.health.source, s.collectorDemo).text : "Simulated";
-      const closed = hist.filter((c) => c.closed);
-      const scored = scoreForecast(
-        closed.map((c) => ({ t: c.t, open: c.open, high: c.high, low: c.low, close: c.close })),
-        { symbol: s.asset, timeframe: s.timeframe, source, horizonBars: DEFAULT_HORIZON_BARS },
-      );
-      const report = backtest({ candles: hist, settings: s.settings, model: s.model, folds: 4 });
-      report.forecastValidation = {
-        ...scored,
-        source,
-        symbol: s.asset,
-        timeframe: s.timeframe,
-        lastClosedTs: closed.at(-1)?.t ?? null,
-      };
-      set({ backtestReport: report, backtestBusy: false });
-    }, 40);
-  },
-  exportJournal: () => {
-    const s = get();
-    return JSON.stringify(
-      {
-        version: MODEL_VERSION,
-        exportedAt: new Date().toISOString(),
-        outcomes: s.outcomes,
-        metrics: {
-          buckets: bucketStats(s.outcomes),
-          byAsset: groupPerf(s.outcomes, (o) => o.asset),
-          byRegime: groupPerf(s.outcomes, (o) => o.regime),
-          pf: profitFactor(s.outcomes),
-          dd: maxDrawdown(s.outcomes.map((o) => o.grossProfit)),
-          lose: longestLose(s.outcomes),
-          scores: scoreOutcomes(s.outcomes),
-        },
-      },
-      null,
-      2,
-    );
-  },
-  wipe: async () => {
-    await wipePersonal();
-    set({ outcomes: [], bookRows: [], risk: emptyRisk(get().settings.bankroll), toast: "Personal data deleted" });
-  },
-  ackMartingale: (on) => set({ martingaleAck: on, settings: { ...get().settings, martingaleEnabled: on } }),
+  ...riskActions(set, get),
+  ...signalActions(set, get),
+  ...backtestActions(set, get, () => feedMode),
+  ...memoryActions(set, get),
   ingestCollectorJson: (raw) => adoptCollector(set, get, raw),
   attachDemoCollector: () => {
     const s = get();
