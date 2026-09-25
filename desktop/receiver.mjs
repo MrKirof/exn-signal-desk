@@ -2,6 +2,8 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { ensureToken, prepareDesktopEnv, readToken, resetToken, verifyToken } from "./pair.mjs";
+import { openTape } from "./tape.mjs";
+import { acceptKey, decodeFrame, encodeFrame } from "./ws-frame.mjs";
 
 const MAX_BYTES = 700_000;
 
@@ -60,12 +62,13 @@ function contentType(file) {
 /**
  * @param {{ port?: number, host?: string, dataDir: string, uiDir: string, zipPath?: string }} opts
  */
-export function startReceiver(opts) {
+export async function startReceiver(opts) {
   const host = opts.host ?? "127.0.0.1";
   if (host !== "127.0.0.1") return Promise.reject(new Error("Desktop receiver binds to 127.0.0.1 only"));
   prepareDesktopEnv(process.env);
   ensureToken(opts.dataDir);
   const uiDir = path.resolve(opts.uiDir);
+  const tape = await openTape(opts.dataDir);
   let boundPort = opts.port ?? 8090;
   /** @type {{ at: number, body: unknown } | null} */
   let latest = null;
@@ -74,6 +77,11 @@ export function startReceiver(opts) {
   /** @param {unknown} body */
   function remember(body) {
     latest = { at: Date.now(), body };
+    try {
+      tape.write(body);
+    } catch {
+      /* json copy below still keeps the latest quote */
+    }
     if (flushTimer) return;
     flushTimer = setTimeout(() => {
       flushTimer = null;
@@ -101,7 +109,7 @@ export function startReceiver(opts) {
         return send(res, 404, { ok: false, error: "This app does not place orders." });
       }
       if (url.pathname === "/api/health") {
-        return send(res, 200, { ok: true, bind: "127.0.0.1", storage: "local-folder", databaseUrl: false });
+        return send(res, 200, { ok: true, bind: "127.0.0.1", storage: tape.kind, stream: "websocket", databaseUrl: false, orders: false });
       }
       if (url.pathname === "/api/desk") {
         return send(res, 403, { ok: false, error: "This endpoint does not hand out a token." });
@@ -151,6 +159,59 @@ export function startReceiver(opts) {
       const message = err instanceof Error ? err.message : "bad request";
       if (!res.headersSent) send(res, 400, { ok: false, error: message });
     }
+  });
+
+  server.on("upgrade", (req, socket) => {
+    const url = new URL(req.url || "/", "http://127.0.0.1");
+    const key = req.headers["sec-websocket-key"];
+    if (req.headers.host !== `127.0.0.1:${boundPort}` || url.pathname !== "/api/stream" || typeof key !== "string" || !key) {
+      socket.destroy();
+      return;
+    }
+    socket.write(
+      "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " +
+        acceptKey(key) +
+        "\r\n\r\n",
+    );
+    let authed = false;
+    /** @type {Buffer} */
+    let buf = Buffer.alloc(0);
+    const timer = setTimeout(() => {
+      if (!authed) socket.destroy();
+    }, 3000);
+    socket.on("data", (/** @type {Buffer} */ chunk) => {
+      buf = Buffer.concat([buf, chunk]);
+      while (buf.length) {
+        const frame = decodeFrame(buf);
+        if (!frame) return;
+        buf = buf.subarray(frame.rest);
+        if (frame.opcode === 8) {
+          socket.end();
+          return;
+        }
+        if (frame.opcode !== 1) continue;
+        let msg = null;
+        try {
+          msg = JSON.parse(frame.payload.toString("utf8"));
+        } catch {
+          socket.destroy();
+          return;
+        }
+        if (!authed) {
+          const token = msg && typeof msg === "object" ? String(msg.token || "") : "";
+          if (!msg || msg.type !== "auth" || !verifyToken(opts.dataDir, token)) {
+            socket.destroy();
+            return;
+          }
+          authed = true;
+          clearTimeout(timer);
+          socket.write(encodeFrame(JSON.stringify({ ok: true })));
+          continue;
+        }
+        remember(msg);
+      }
+    });
+    socket.on("error", () => socket.destroy());
   });
 
   return new Promise((resolve, reject) => {

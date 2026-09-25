@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -124,6 +126,37 @@ test("local receiver rejects bad tokens, accepts a candle, and does not place or
     if (!parsedFixture.ok) return;
     assert.equal(collectorToSpot(parsedFixture.snap).source, "fixture");
     assert.equal(feedClaim("fixture", true).text, "Fixture · test");
+    const tapeFile = path.join(dir, "tape.sqlite");
+    assert.equal(fs.existsSync(tapeFile), true);
+    await new Promise<void>((resolve, reject) => {
+      const sock = net.connect(started.port, "127.0.0.1", () => {
+        const key = crypto.randomBytes(16).toString("base64");
+        sock.write(
+          `GET /api/stream HTTP/1.1\r\nHost: 127.0.0.1:${started.port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${key}\r\nSec-WebSocket-Version: 13\r\n\r\n`,
+        );
+      });
+      let raw = Buffer.alloc(0);
+      sock.on("data", (chunk) => {
+        raw = Buffer.concat([raw, chunk]);
+        if (!raw.includes("\r\n\r\n")) return;
+        if (!raw.toString("utf8").includes("101")) {
+          sock.destroy();
+          reject(new Error("stream refused"));
+          return;
+        }
+        const payload = Buffer.from(JSON.stringify({ type: "auth", token: "" }));
+        const mask = crypto.randomBytes(4);
+        const masked = Buffer.from(payload);
+        for (let i = 0; i < masked.length; i += 1) masked[i] ^= mask[i % 4];
+        const head = Buffer.alloc(6);
+        head[0] = 0x81;
+        head[1] = 0x80 | payload.length;
+        mask.copy(head, 2);
+        sock.write(Buffer.concat([head, masked]));
+        sock.once("close", () => resolve());
+      });
+      sock.on("error", reject);
+    });
     const reset = await fetch(base + "/api/token/reset", { method: "POST", headers: { "x-desk-token": started.token } });
     const resetBody = await reset.json();
     assert.equal(reset.ok, true);

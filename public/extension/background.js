@@ -73,6 +73,32 @@ async function push(snapshot) {
   return last;
 }
 
+let socket = null;
+let socketReady = false;
+let socketKey = "";
+
+function ensureSocket(deskUrl, token) {
+  const key = deskUrl + "\n" + token;
+  if (socket && socket.readyState < 2 && socketKey === key) return;
+  socketReady = false;
+  socketKey = key;
+  try {
+    if (socket) socket.close();
+  } catch (e) {}
+  const stream = new WebSocket(deskUrl.replace(/^http:/, "ws:") + "/api/stream");
+  socket = stream;
+  stream.onopen = () => stream.send(JSON.stringify({ type: "auth", token }));
+  stream.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg && msg.ok === true) socketReady = true;
+    } catch (e) {}
+  };
+  stream.onclose = () => {
+    socketReady = false;
+  };
+}
+
 async function send(snapshot) {
   const note = {
     at: Date.now(),
@@ -86,6 +112,18 @@ async function send(snapshot) {
   if (!desk.ok) return { ...note, ok: false, error: desk.error };
   const auth = bearer(cfg.token);
   if (!auth.ok) return { ...note, ok: false, error: auth.error };
+  ensureSocket(desk.url, auth.token);
+  if (socket && socket.readyState === 1 && socketReady) {
+    try {
+      socket.send(JSON.stringify(snapshot));
+      const last = { ...note, ok: true, error: "" };
+      void chrome.storage.local.set({ exn_link: last });
+      paintBadge(true);
+      return last;
+    } catch (e) {
+      socketReady = false;
+    }
+  }
   let last = { ...note, ok: false, error: "Desk did not answer." };
   try {
     const res = await fetch(desk.url + "/api/collector", {
