@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "EXN Signal Lab Collector",
-  "version": "3.7.0",
-  "description": "Reads Exness quotes and sends them to the hosted desk URL you set. Requires that token. Does not place trades.",
+  "version": "3.8.0",
+  "description": "Reads Exness quotes into the local desk and shows that desk's signal. Does not place trades.",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -10,8 +10,8 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "EXN Collector",
-    "default_popup": "options.html"
+    "default_title": "EXN Signal",
+    "default_popup": "popup.html"
   },
   "background": {
     "service_worker": "background.js",
@@ -21,6 +21,7 @@
   "permissions": ["storage"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],
   "host_permissions": [
+    "http://127.0.0.1:8090/*",
     "https://*.exness.com/*",
     "https://exness.com/*",
     "https://*.exness.global/*",

@@ -20,7 +20,7 @@ import {
   AlertDialogFooter,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { APP_NAME, APP_VERSION, ASSETS } from "@/lib/lab/constants";
+import { APP_NAME, APP_VERSION, ASSETS, assetMeta } from "@/lib/lab/constants";
 import { t } from "@/lib/lab/i18n";
 import { feedClaim } from "@/lib/lab/source-label";
 import type { AssetId, Timeframe, ViewId } from "@/lib/lab/types";
@@ -35,6 +35,7 @@ import { AgentsPanel } from "./agents-panel";
 import { Layer } from "./layer";
 import { fmtPx, fmtUsd, regimeLabel } from "./format";
 import { cn } from "@/lib/utils";
+import { projectTargets } from "@/lib/lab/targets";
 import { adx, atr, ema, efficiencyRatio, rsi } from "@/lib/lab/indicators";
 
 const VIEWS: { id: ViewId; icon: typeof Activity; key: "desk" | "health" | "risk" | "performance" | "backtest" | "journal" | "settings" | "agents" }[] = [
@@ -87,6 +88,33 @@ export function LabShell() {
   useEffect(() => {
     boot();
   }, [boot]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const s = useLab.getState();
+      if (!s.collectorToken) return;
+      const closed = s.candles.filter((c) => c.closed);
+      const anchor = closed.at(-1)?.close || s.price;
+      const dir = s.signal?.direction === "BUY" || s.signal?.direction === "SELL" ? s.signal.direction : "WAIT";
+      const plan = dir === "WAIT" ? null : projectTargets(dir, anchor, closed, assetMeta(s.asset).pip);
+      const blocked = Boolean(s.signal?.cancelledReason?.startsWith("High Risk") || s.risk.killed || s.risk.dailyStopHit);
+      const quality = dir === "WAIT" || blocked ? "Avoid" : plan ? "Optimal" : "Risky";
+      void fetch("/api/extension-status", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-desk-token": s.collectorToken },
+        body: JSON.stringify({
+          pair: s.asset,
+          direction: dir,
+          quality,
+          target1: plan?.target1 ?? s.signal?.targetPrice ?? null,
+          target2: plan?.target2 ?? null,
+          price: s.price,
+          note: blocked ? "High risk. Stand aside." : dir === "WAIT" ? "No trade on this candle." : "Measured levels. Not a probability.",
+        }),
+      }).catch(() => undefined);
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {

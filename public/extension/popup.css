@@ -1,0 +1,22 @@
+body {
+  margin: 0;
+  width: 280px;
+  background: #05070b;
+  color: #e7f6ff;
+  font: 13px/1.4 "Segoe UI", sans-serif;
+}
+main { padding: 14px; }
+header { display: flex; justify-content: space-between; }
+.kicker { margin: 0; color: #5e7c90; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+#age { margin: 0; color: #8eb4c9; font-size: 11px; }
+#pair { margin: 12px 0 0; font-family: Consolas, monospace; }
+#direction { margin: 4px 0 0; font-size: 32px; font-weight: 650; }
+#direction.BUY { color: #39f3a6; }
+#direction.SELL { color: #ff4d6d; }
+#direction.WAIT { color: #8eb4c9; }
+#quality { margin: 6px 0 0; }
+#quality.Optimal { color: #39f3a6; }
+#quality.Risky { color: #f5c451; }
+#quality.Avoid { color: #ff4d6d; }
+#targets, #note { margin: 8px 0 0; color: #8eb4c9; }
+a { display: inline-block; margin-top: 12px; color: #3ee0ff; }

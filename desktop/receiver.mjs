@@ -72,6 +72,25 @@ export async function startReceiver(opts) {
   const tape = await openTape(opts.dataDir);
   const data = createDataManager({ tape, dataDir: opts.dataDir });
   let boundPort = opts.port ?? 8090;
+  /** @type {Record<string, unknown> | null} */
+  let extensionStatus = null;
+
+  function readExtensionStatus(body) {
+    const src = body && typeof body === "object" ? body : {};
+    const direction = src.direction === "BUY" || src.direction === "SELL" || src.direction === "WAIT" ? src.direction : "WAIT";
+    const quality = src.quality === "Optimal" || src.quality === "Risky" || src.quality === "Avoid" ? src.quality : "Avoid";
+    const num = (value) => (typeof value === "number" && Number.isFinite(value) ? value : null);
+    return {
+      pair: typeof src.pair === "string" ? src.pair.slice(0, 16) : "",
+      direction,
+      quality,
+      target1: num(src.target1),
+      target2: num(src.target2),
+      price: num(src.price) ?? 0,
+      at: Date.now(),
+      note: typeof src.note === "string" ? src.note.slice(0, 180) : "",
+    };
+  }
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -106,6 +125,15 @@ export async function startReceiver(opts) {
         if (req.method === "PUT" || req.method === "POST") {
           const body = await readBody(req);
           data.push(body);
+          return send(res, 200, { ok: true });
+        }
+        return send(res, 405, { ok: false, error: "method" });
+      }
+      if (url.pathname === "/api/extension-status") {
+        if (!verifyToken(opts.dataDir, presented)) return send(res, 401, { ok: false, error: "pair required" });
+        if (req.method === "GET") return send(res, 200, { ok: true, status: extensionStatus });
+        if (req.method === "POST") {
+          extensionStatus = readExtensionStatus(await readBody(req));
           return send(res, 200, { ok: true });
         }
         return send(res, 405, { ok: false, error: "method" });

@@ -107,6 +107,20 @@ test("local receiver rejects bad tokens, accepts a candle, and does not place or
     assert.equal(body.snapshot.page, undefined);
     const parsed = parseCollector(body.snapshot);
     assert.equal(parsed.ok, true);
+    const locked = await fetch(base + "/api/extension-status");
+    assert.equal(locked.status, 401);
+    const posted = await fetch(base + "/api/extension-status", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-desk-token": started.token },
+      body: JSON.stringify({ pair: "EURUSD", direction: "BUY", quality: "Optimal", target1: 1.2, target2: 1.3, price: 1.1, confidence: 90 }),
+    });
+    assert.equal(posted.status, 200);
+    const statusRes = await fetch(base + "/api/extension-status", { headers: { "x-desk-token": started.token } });
+    const statusBody = await statusRes.json();
+    assert.equal(statusBody.status.pair, "EURUSD");
+    assert.equal(statusBody.status.direction, "BUY");
+    assert.equal(statusBody.status.target1, 1.2);
+    assert.equal("confidence" in statusBody.status, false);
     if (!parsed.ok) return;
     const spot = collectorToSpot(parsed.snap);
     assert.notEqual(spot.source, "exness");
