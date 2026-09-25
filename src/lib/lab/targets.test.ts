@@ -35,6 +35,15 @@ test("a short target uses the nearest support and stays under price", () => {
   assert.ok(plan.target2 < plan.target1);
 });
 
+test("a two-pip EURUSD wick is not treated as resistance", () => {
+  const bars = flat(20, 1.1, 0.001);
+  bars[8] = { high: 1.1002, low: 1.099, close: 1.1 };
+  bars[12] = { high: 1.104, low: 1.099, close: 1.101 };
+  const plan = projectTargets("BUY", 1.1, bars, 0.0001);
+  assert.ok(plan);
+  assert.equal(plan.target1, 1.104);
+});
+
 test("too few candles produce no target", () => {
   assert.equal(projectTargets("BUY", 1.1, flat(10, 1.1)), null);
 });

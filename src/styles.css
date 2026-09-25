@@ -7,19 +7,19 @@
   --font-serif: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
 
-  --color-bg: #07090d;
-  --color-surface: #10151c;
-  --color-elevated: #18212b;
-  --color-fg: #e8eef6;
-  --color-muted: #8ea0b5;
-  --color-subtle: #66788c;
-  --color-accent: #7dd3c0;
-  --color-accent-fg: #06211c;
+  --color-bg: #05070b;
+  --color-surface: #0c1219;
+  --color-elevated: #132033;
+  --color-fg: #e7f6ff;
+  --color-muted: #8eb4c9;
+  --color-subtle: #5e7c90;
+  --color-accent: #3ee0ff;
+  --color-accent-fg: #031318;
   --color-border: color-mix(in oklab, var(--color-fg) 10%, transparent);
   --color-border-strong: color-mix(in oklab, var(--color-fg) 22%, transparent);
-  --color-call: #3dd68c;
-  --color-put: #f07178;
-  --color-warn: #e6b450;
+  --color-call: #39f3a6;
+  --color-put: #ff4d6d;
+  --color-warn: #f5c451;
 
   --radius-xs: 2px;
   --radius-sm: 4px;

@@ -1,7 +1,7 @@
 import type { AssetId, LabSettings, Timeframe } from "./types.ts";
 
 export const APP_NAME = "EXN Signal Lab";
-export const APP_VERSION = "4.2.5";
+export const APP_VERSION = "4.2.6";
 export const MODEL_VERSION = "exn-lab-2.3.0";
 export const FEATURE_VERSION = "f-1.1.0";
 export const STRATEGY_VERSION = "s-2.1.0";

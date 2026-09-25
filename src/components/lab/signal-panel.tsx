@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { sizePosition } from "@/lib/lab/risk";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { t } from "@/lib/lab/i18n";
@@ -17,6 +18,7 @@ import { DEFAULT_HORIZON_BARS, HORIZON_CHOICES, forecastMove } from "@/lib/lab/f
 
 export function SignalPanel() {
   const lang = useLab((s) => s.settings.lang);
+  const settings = useLab((s) => s.settings);
   const signal = useLab((s) => s.signal);
   const scanner = useLab((s) => s.scanner);
   const price = useLab((s) => s.price);
@@ -37,7 +39,6 @@ export function SignalPanel() {
   const sizeNote = useLab((s) => s.sizeNote);
   const quoteBid = useLab((s) => s.quoteBid);
   const quoteAsk = useLab((s) => s.quoteAsk);
-  const settings = useLab((s) => s.settings);
   const candles = useLab((s) => s.candles);
   const outcomes = useLab((s) => s.outcomes);
   const scan = skillScan(candles.filter((c) => c.closed));
@@ -68,7 +69,13 @@ export function SignalPanel() {
   const matrix = timeframeMatrix(closedBars);
   const standAside = riskWarning(closedBars, shown?.cancelledReason?.includes("High-impact") ? shown.cancelledReason : null);
   const riskLine = shown?.cancelledReason?.startsWith("High Risk") ? shown.cancelledReason : standAside.warning;
-  const projection = dir === "BUY" || dir === "SELL" ? projectTargets(dir, price > 0 ? price : (lastClosed?.close ?? 0), closedBars) : null;
+  const [balance, setBalance] = useState("");
+  const [riskPct, setRiskPct] = useState("");
+  const projection = dir === "BUY" || dir === "SELL" ? projectTargets(dir, price > 0 ? price : (lastClosed?.close ?? 0), closedBars, assetMeta(asset).pip) : null;
+  const equity = Number(balance || settings.bankroll);
+  const pct = Number(riskPct || String(settings.riskPercent * 100)) / 100;
+  const stopForLot = shown?.stopPrice && shown.stopPrice > 0 ? shown.stopPrice : projection ? (dir === "BUY" ? projection.price - projection.atr : projection.price + projection.atr) : 0;
+  const lots = dir === "BUY" || dir === "SELL" ? sizePosition({ settings: { ...settings, bankroll: equity, riskPercent: pct }, equity, entry: price > 0 ? price : (lastClosed?.close ?? 0), stop: stopForLot, asset }) : null;
   const forecast = forecastMove({
     symbol: asset,
     timeframe,
@@ -85,10 +92,10 @@ export function SignalPanel() {
     <aside
       data-strategies={shown?.strategies?.length ?? 0}
       data-why={shown?.cancelledReason || shown?.reasons?.[0] || "none"}
-      className="panel flex flex-col gap-3 p-4 lg:sticky lg:top-3 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto"
+      className="panel flex flex-col gap-3 p-3"
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="kicker">{open ? "Live signal" : tt("kicker")}</p>
+        <p className="kicker">Control center</p>
         <Badge variant={badge === "READY" ? "accent" : badge === "SETTLING" ? "warn" : "muted"}>{badge}</Badge>
       </div>
       {open ? (
@@ -96,14 +103,34 @@ export function SignalPanel() {
           Paper {open.signal.direction} is open on the left. Entry {fmtPx(asset, open.signal.entryPrice)}. This side keeps scanning.
         </p>
       ) : null}
-      <div
-        className={cn(
-          "rounded-md px-3 py-4 text-center",
-          dir === "BUY" && "bg-call/10",
-          dir === "SELL" && "bg-put/10",
-          dir === "WAIT" && "panel-inset",
-        )}
-      >
+      <div className="grid items-start gap-3 xl:grid-cols-[220px_minmax(0,1fr)_260px]">
+        <section className="panel-inset p-3 text-left">
+          <p className="kicker mb-2">Confirmation</p>
+          <div className="grid gap-2">
+            {matrix.cells.map((cell) => (
+              <div key={cell.label}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="kicker">{cell.label}</p>
+                  <p className={cn("font-mono text-sm", cell.direction === "BUY" && "text-call", cell.direction === "SELL" && "text-put", cell.direction === "WAIT" && "text-muted")}>
+                    {cell.direction === "BUY" ? "LONG" : cell.direction === "SELL" ? "SHORT" : "WAIT"}
+                  </p>
+                </div>
+                <p className="text-xs text-muted">{cell.note}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-fg">
+            {matrix.strong && dir !== "WAIT" && !riskLine ? "Strong. All three agree." : "Not strong. The three do not agree."}
+          </p>
+        </section>
+        <div
+          className={cn(
+            "rounded-md px-3 py-4 text-center",
+            dir === "BUY" && "bg-call/10",
+            dir === "SELL" && "bg-put/10",
+            dir === "WAIT" && "panel-inset",
+          )}
+        >
         <p
           className={cn(
             "display text-4xl leading-none",
@@ -132,26 +159,6 @@ export function SignalPanel() {
           {lastClosed ? ` · source ${lastClosed.source}` : ""}
         </p>
         {riskLine ? <p className="mt-3 rounded-sm bg-put/15 px-2 py-2 text-sm text-put">{riskLine}</p> : null}
-        <div className="mt-4 grid grid-cols-3 gap-2 text-left">
-          {matrix.cells.map((cell) => (
-            <div key={cell.label} className="panel-inset px-2 py-2">
-              <p className="kicker">{cell.label}</p>
-              <p className={cn("font-mono text-sm", cell.direction === "BUY" && "text-call", cell.direction === "SELL" && "text-put", cell.direction === "WAIT" && "text-muted")}>
-                {cell.direction === "BUY" ? "LONG" : cell.direction === "SELL" ? "SHORT" : "WAIT"}
-              </p>
-              <p className="text-xs text-muted">{cell.note}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-fg">
-          {matrix.strong && dir !== "WAIT" && !riskLine ? "Strong signal. 1H, 15M, and 5M agree." : "Not a strong signal. The three timeframes do not all agree."}
-        </p>
-        <div className="mt-3 text-left text-xs text-fg">
-          <p className="kicker mb-1">Structure</p>
-          <p>{smc.orderBlock}</p>
-          <p className="mt-1">{smc.fvg}</p>
-          <p className="mt-1">{smc.liquidity}</p>
-        </div>
         {projection ? (
           <div className="mt-3 text-left">
             <p className="kicker mb-2">{projection.side === "BUY" ? "Long projection" : "Short projection"}</p>
@@ -175,6 +182,23 @@ export function SignalPanel() {
             <p className="text-xs text-muted">{projection.target2Why} ATR {fmtPx(asset, projection.atr)}.</p>
           </div>
         ) : null}
+        <div className="mt-3 text-left">
+          <p className="kicker mb-2">Risk calculator</p>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-muted">
+              Balance
+              <input className="mt-1 w-full bg-transparent font-mono text-sm text-fg" inputMode="decimal" value={balance} placeholder={String(settings.bankroll)} onChange={(e) => setBalance(e.target.value)} />
+            </label>
+            <label className="text-xs text-muted">
+              Risk %
+              <input className="mt-1 w-full bg-transparent font-mono text-sm text-fg" inputMode="decimal" value={riskPct} placeholder={(settings.riskPercent * 100).toFixed(2)} onChange={(e) => setRiskPct(e.target.value)} />
+            </label>
+          </div>
+          <p className="mt-2 font-mono text-sm text-fg">
+            {lots == null ? "No lot while the signal is WAIT." : lots.blocked ? lots.blocked : `${lots.lots.toFixed(2)} lot · risk $${lots.riskAmount.toFixed(2)}`}
+          </p>
+          <p className="mt-1 text-xs text-muted">Lot size uses the signal stop, or 1× ATR when the signal has no stop. It does not send an order.</p>
+        </div>
         <div className="mt-3 text-left">
           <div className="flex items-center justify-between gap-2">
             <p className="kicker">Move forecast</p>
@@ -249,6 +273,13 @@ export function SignalPanel() {
             {shown!.recommendedLots.toFixed(shown!.recommendedLots < 0.1 ? 3 : 2)} lot · 1:{shown!.suggestedLeverage} · margin {fmtUsd(shown!.marginUsd)}
           </p>
         )}
+      </div>
+        <section className="panel-inset p-3 text-left text-xs text-fg">
+          <p className="kicker mb-2">SMC</p>
+          <p>{smc.orderBlock}</p>
+          <p className="mt-2">{smc.fvg}</p>
+          <p className="mt-2">{smc.liquidity}</p>
+        </section>
       </div>
 
       {cf?.items?.length ? (

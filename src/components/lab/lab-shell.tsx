@@ -402,23 +402,27 @@ function Desk({ density }: { density: "compact" | "advanced" }) {
   const outlook = useLab((s) => s.outlook);
   const pane = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("pane");
   return (
-    <div className="flex flex-col gap-3">
-      {pane !== "signal" && (
-        <Layer name="Chart">
-          <div className="panel relative h-[min(62vh,680px)] min-h-[320px] overflow-hidden">
-            <CandleChart
-              candles={candles}
-              forming={forming}
-              signal={signal}
-              outcomes={outcomes}
-              news={news}
-              trailStop={manage?.trailStop ?? 0}
-              levels={outlook?.levels ?? []}
-            />
-          </div>
-        </Layer>
-      )}
-      <div className={cn("grid items-start gap-3", pane !== "signal" && pane !== "chart" && "xl:grid-cols-[minmax(0,1fr)_380px]")}>
+      <div className="flex flex-col gap-3">
+        {pane !== "signal" && (
+          <Layer name="Chart">
+            <div className="panel relative h-[min(52vh,560px)] min-h-[280px] overflow-hidden">
+              <CandleChart
+                candles={candles}
+                forming={forming}
+                signal={signal}
+                outcomes={outcomes}
+                news={news}
+                trailStop={manage?.trailStop ?? 0}
+                levels={outlook?.levels ?? []}
+              />
+            </div>
+          </Layer>
+        )}
+        {pane !== "chart" && (
+          <Layer name="Signal">
+            <SignalPanel />
+          </Layer>
+        )}
         {pane !== "signal" && (
           <div className="flex min-w-0 flex-col gap-3">
             <div className="grid gap-3 lg:grid-cols-2">
@@ -445,13 +449,8 @@ function Desk({ density }: { density: "compact" | "advanced" }) {
             )}
           </div>
         )}
-        {pane !== "chart" && (
-          <Layer name="Signal">
-            <SignalPanel />
-          </Layer>
-        )}
+        <PriceTape />
       </div>
-    </div>
   );
 }
 
@@ -716,6 +715,33 @@ function PathOutlook() {
       ) : (
         <p className="mt-2 text-xs text-muted">Path model starts on the next price update.</p>
       )}
+    </div>
+  );
+}
+
+function PriceTape() {
+  const price = useLab((s) => s.price);
+  const asset = useLab((s) => s.asset);
+  const [prints, setPrints] = useState<{ px: number; up: boolean; n: number }[]>([]);
+  useEffect(() => {
+    if (!(price > 0)) return;
+    setPrints((prev) => {
+      const last = prev[prev.length - 1];
+      if (last && last.px === price) return prev;
+      return [...prev, { px: price, up: !last || price >= last.px, n: (last?.n ?? 0) + 1 }].slice(-28);
+    });
+  }, [price]);
+  return (
+    <div className="panel flex items-center gap-3 overflow-hidden px-3 py-2">
+      <p className="kicker shrink-0">Tape</p>
+      <div className="flex min-w-0 gap-3 overflow-hidden">
+        {prints.length === 0 ? <span className="font-mono text-xs text-muted">Waiting for a price.</span> : null}
+        {prints.map((print) => (
+          <span key={print.n} className={cn("shrink-0 font-mono text-xs", print.up ? "text-call" : "text-put")}>
+            {fmtPx(asset, print.px)}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
