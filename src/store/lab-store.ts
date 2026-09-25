@@ -148,6 +148,7 @@ let collectorLive = false;
 let collectorDemo = false;
 let collectorToken = "";
 let collectorListenTimer: number | null = null;
+let lastCollectorAt = 0;
 let universeBusy = false;
 let lastUniverse = 0;
 let engineOn = false;
@@ -1547,10 +1548,12 @@ export const useLab = create<LabSnapshot & LabActions>((set, get) => ({
       try {
         const res = await fetch("/api/collector", { headers: { "x-desk-token": collectorToken } });
         if (!res.ok) return;
-        const json = (await res.json()) as { ok: boolean; snapshot?: { hello?: boolean; price?: number } };
+        const json = (await res.json()) as { ok: boolean; at?: number; snapshot?: { hello?: boolean; price?: number } };
         if (!json.ok || !json.snapshot) return;
+        if (json.at && json.at === lastCollectorAt) return;
+        lastCollectorAt = json.at || Date.now();
         if (json.snapshot.hello === true && !(Number(json.snapshot.price) > 0)) {
-          set({ extensionSeen: true, toast: "Extension linked. Open the Exness terminal for quotes." });
+          if (!get().extensionSeen) set({ extensionSeen: true, toast: "Extension linked. Open the Exness terminal for quotes." });
           return;
         }
         adoptCollector(set, get, json.snapshot);
@@ -1574,7 +1577,7 @@ export const useLab = create<LabSnapshot & LabActions>((set, get) => ({
         set({ collectorToken, collectorListening: true, toast: "Token loaded from this PC. Paste it into the extension. No order is sent." });
         void poll();
         if (collectorListenTimer != null) window.clearInterval(collectorListenTimer);
-        collectorListenTimer = window.setInterval(() => void poll(), 2000);
+        collectorListenTimer = window.setInterval(() => void poll(), 250);
       } catch {
         set({ toast: "Desktop app did not provide a token." });
       }

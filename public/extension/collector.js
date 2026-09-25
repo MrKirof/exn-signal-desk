@@ -2,6 +2,7 @@
 (() => {
   if (window.__exnCollector30) return;
   window.__exnCollector30 = true;
+  if (window !== window.top) return;
 
   const state = {
     asset: "",
@@ -98,7 +99,7 @@
   function ship(forceFull) {
     if (!(state.price > 0) || !state.assetSeen) return;
     const now = Date.now();
-    const full = !!forceFull || now - lastFull > 400;
+    const full = !!forceFull || now - lastFull > 1200;
     if (!full && now - lastShip < 70) return;
     lastShip = now;
     if (full) lastFull = now;
@@ -219,6 +220,6 @@
       ship(false);
     }
   }
-  setInterval(harvestDom, 300);
+  setInterval(harvestDom, 1000);
   setTimeout(harvestDom, 400);
 })();

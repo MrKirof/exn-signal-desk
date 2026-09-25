@@ -19,6 +19,8 @@ function paintBadge(ok) {
 let inflight = false;
 let pending = null;
 
+let lastStored = 0;
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg) return;
   if (msg.type === "exn-save") {
@@ -35,7 +37,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: false, error: "Capture rejected. Use an active Exness terminal tab." });
     return;
   }
-  chrome.storage.local.set({ exn_last_snapshot: snap });
+  if (Date.now() - lastStored > 200) {
+    lastStored = Date.now();
+    void chrome.storage.local.set({ exn_last_snapshot: snap });
+  }
   void push(snap).then((res) => sendResponse(res));
   return true;
 });
@@ -94,7 +99,7 @@ async function send(snapshot) {
   } catch (e) {
     last = { ...note, ok: false, error: "Could not reach the desk URL." };
   }
-  await chrome.storage.local.set({ exn_link: last });
+  void chrome.storage.local.set({ exn_link: last });
   paintBadge(last.ok);
   return last;
 }

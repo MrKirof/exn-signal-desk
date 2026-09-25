@@ -69,6 +69,24 @@ export function startReceiver(opts) {
   let boundPort = opts.port ?? 8090;
   /** @type {{ at: number, body: unknown } | null} */
   let latest = null;
+  let flushTimer = null;
+  function remember(body) {
+    latest = { at: Date.now(), body };
+    if (flushTimer) return;
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      if (!latest) return;
+      try {
+        fs.mkdirSync(opts.dataDir, { recursive: true });
+        const destination = path.join(opts.dataDir, "candles.json");
+        const temporary = `${destination}.tmp`;
+        fs.writeFileSync(temporary, JSON.stringify({ at: latest.at, snapshot: latest.body }), { encoding: "utf8", mode: 0o600 });
+        fs.renameSync(temporary, destination);
+      } catch {
+        /* the live copy in memory is what the desk reads */
+      }
+    }, 400);
+  }
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -99,12 +117,7 @@ export function startReceiver(opts) {
         if (req.method === "GET") return send(res, 200, { ok: true, at: latest?.at ?? 0, snapshot: latest?.body ?? null });
         if (req.method === "PUT" || req.method === "POST") {
           const body = await readBody(req);
-          latest = { at: Date.now(), body };
-          fs.mkdirSync(opts.dataDir, { recursive: true });
-          const destination = path.join(opts.dataDir, "candles.json");
-          const temporary = `${destination}.tmp`;
-          fs.writeFileSync(temporary, JSON.stringify({ at: latest.at, snapshot: body }), { encoding: "utf8", mode: 0o600 });
-          fs.renameSync(temporary, destination);
+          remember(body);
           return send(res, 200, { ok: true });
         }
         return send(res, 405, { ok: false, error: "method" });
