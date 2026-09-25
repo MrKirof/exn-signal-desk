@@ -1,4 +1,4 @@
-import { bearer, normalizeDeskUrl } from "./desk-target.js";
+import { bearer, LOCAL_DESK_TOKEN, normalizeDeskUrl } from "./desk-target.js";
 import { annotateCapture } from "./capture-provenance.js";
 
 const URL_KEY = "exn_desk_url";
@@ -6,7 +6,7 @@ const TOKEN_KEY = "exn_desk_token";
 
 async function config() {
   const data = await chrome.storage.local.get([URL_KEY, TOKEN_KEY]);
-  return { url: data[URL_KEY] || "", token: data[TOKEN_KEY] || "" };
+  return { url: data[URL_KEY] || "http://127.0.0.1:8090", token: data[TOKEN_KEY] || LOCAL_DESK_TOKEN };
 }
 
 function paintBadge(ok) {

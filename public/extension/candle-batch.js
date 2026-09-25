@@ -14,11 +14,11 @@
     return open > 0 && close > 0;
   }
   function exnCandleBatch(node) {
-    if (!Array.isArray(node) || node.length < 8) return null;
+    if (!Array.isArray(node) || node.length < 4) return null;
     const sample = Math.min(node.length, 12);
     let hits = 0;
     for (let i = 0; i < sample; i += 1) if (rowOk(node[i])) hits += 1;
-    if (hits < 8) return null;
+    if (hits < 4) return null;
     return node.slice(-400);
   }
   root.exnCandleBatch = exnCandleBatch;

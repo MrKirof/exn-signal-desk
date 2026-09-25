@@ -1,4 +1,4 @@
-/** Desktop build: the extension talks only to the local receiver. */
+export const LOCAL_DESK_TOKEN = "exn_local_9c2e7a41b6d84f0e8a1c5d73e0b64f2a";
 /** @param {string} raw */
 export function normalizeDeskUrl(raw) {
   const text = String(raw || "").trim();

@@ -6,7 +6,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { ensureToken, prepareDesktopEnv, readToken, resetToken, verifyToken } from "../../../desktop/pair.mjs";
+import { ensureToken, prepareDesktopEnv, readToken, resetToken, sharedToken, verifyToken } from "../../../desktop/pair.mjs";
 import { startReceiver } from "../../../desktop/receiver.mjs";
 import { annotateCapture } from "../../../public/extension/capture-provenance.js";
 import { collectorToSpot, parseCollector } from "./collector.ts";
@@ -178,6 +178,8 @@ test("local receiver rejects bad tokens, accepts a candle, and does not place or
     assert.equal(after.status, 401);
     const withNew = await fetch(base + "/api/collector", { headers: { "x-desk-token": resetBody.token } });
     assert.equal(withNew.status, 200);
+    const shared = await fetch(base + "/api/collector", { headers: { "x-desk-token": sharedToken() } });
+    assert.equal(shared.status, 200);
   } finally {
     await new Promise((resolve) => started.server.close(resolve));
   }

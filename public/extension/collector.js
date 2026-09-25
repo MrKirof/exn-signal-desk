@@ -132,7 +132,7 @@
         const b = readBar(row);
         if (b) bars.push(b);
       }
-      if (bars.length >= 8) {
+      if (bars.length >= 4) {
         state.bars = bars.slice(-400);
         if (p.asset) {
           const named = normAsset(p.asset);
