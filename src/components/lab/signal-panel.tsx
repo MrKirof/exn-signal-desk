@@ -13,6 +13,7 @@ import { bookRisk, skillScan } from "@/lib/lab/skill-desk";
 import { readJev } from "@/lib/lab/jev";
 import { dataOrigin, originLabel } from "@/lib/lab/source-label";
 import { readSmc, riskWarning, timeframeMatrix } from "@/lib/lab/context-filters";
+import { meanStretch } from "@/lib/lab/stretch";
 import { projectTargets, trackProgress } from "@/lib/lab/targets";
 import { DEFAULT_HORIZON_BARS, HORIZON_CHOICES, forecastMove } from "@/lib/lab/forecast";
 
@@ -72,6 +73,7 @@ export function SignalPanel() {
   const [balance, setBalance] = useState("");
   const [riskPct, setRiskPct] = useState("");
   const anchor = lastClosed?.close && lastClosed.close > 0 ? lastClosed.close : price;
+  const stretch = meanStretch(closedBars.map((c) => c.close));
   const projection = dir === "BUY" || dir === "SELL" ? projectTargets(dir, anchor, closedBars, assetMeta(asset).pip) : null;
   const progress = projection ? trackProgress(projection, price > 0 ? price : anchor) : 0;
   const [markTick, setMarkTick] = useState(0);
@@ -187,6 +189,19 @@ export function SignalPanel() {
           </div>
         ) : null}
         {projection ? <p className="mt-2 text-left text-xs text-muted">{projection.target1Why} {projection.target2Why} {projection.target3Why} These are measured levels, not probabilities.</p> : null}
+        <div className="mt-3 text-left text-xs">
+          <p className="kicker mb-1">Mean</p>
+          <p className="text-fg">
+            {stretch
+              ? `${stretch.z.toFixed(2)} standard deviations from the mean of these candles. ${stretch.stretched ? "Stretched. That is not a promise it returns." : "Inside the recent mean."}`
+              : "Need 20 closed candles."}
+          </p>
+          <p className="kicker mb-1 mt-2">Depth</p>
+          <p className="text-muted">
+            {quoteBid != null && quoteAsk != null ? `Bid ${fmtPx(asset, quoteBid)} · Ask ${fmtPx(asset, quoteAsk)}. ` : ""}
+            Pending lot size is not in this feed. No footprint is drawn.
+          </p>
+        </div>
         <div className="mt-3 text-left">
           <p className="kicker mb-2">Risk calculator</p>
           <div className="grid grid-cols-2 gap-2">
