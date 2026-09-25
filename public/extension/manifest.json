@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EXN Signal Lab Collector",
-  "version": "3.8.0",
+  "version": "3.9.0",
   "description": "Reads Exness quotes into the local desk and shows that desk's signal. Does not place trades.",
   "icons": {
     "16": "icons/icon16.png",
@@ -35,7 +35,7 @@
         "https://*.exness.global/*",
         "https://*.exness.app/*"
       ],
-      "js": ["collector-hook.js"],
+      "js": ["candle-batch.js", "collector-hook.js"],
       "run_at": "document_start",
       "world": "MAIN",
       "all_frames": true

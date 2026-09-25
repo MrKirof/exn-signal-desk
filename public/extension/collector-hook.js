@@ -1,7 +1,7 @@
 /*! EXN collector — MAIN world, read-only wrap of WS/fetch/XHR. Never sends on page sockets. */
 (() => {
-  if (window.__exnHook21) return;
-  window.__exnHook21 = true;
+  if (window.__exnHook22) return;
+  window.__exnHook22 = true;
   const SRC = "exn-collector-hook";
 
   function emit(payload) {
@@ -27,6 +27,11 @@
     function walk(node, depth, asset) {
       if (!node || n++ > 800 || depth > 5) return;
       if (Array.isArray(node)) {
+        const batch = globalThis.exnCandleBatch ? globalThis.exnCandleBatch(node) : null;
+        if (batch) {
+          emit({ kind: "candles", asset, candles: batch });
+          return;
+        }
         if (node.length >= 3 && typeof node[0] === "string") {
           const px = Number(node[2]);
           if (px > 0) emit({ kind: "tick", asset: node[0], price: px, t: toMs(node[1]) || Date.now() });
@@ -44,7 +49,7 @@
       const a = node.asset || node.symbol || node.pair || node.instrument || asset;
       const price = Number(node.price ?? node.last ?? node.p ?? node.bid ?? node.ask);
       if (a && price > 0) emitTick(a, price, node);
-      for (const key of ["candles", "history", "bars", "klines", "data", "ticks", "quotes"]) {
+      for (const key of ["candles", "history", "bars", "klines", "ohlc", "rates", "points", "series", "data", "ticks", "quotes"]) {
         if (Array.isArray(node[key]) && node[key].length > 8) emit({ kind: "candles", asset: a, candles: node[key].slice(-400) });
       }
       if (depth >= 4) return;

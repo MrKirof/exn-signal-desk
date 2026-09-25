@@ -163,7 +163,9 @@
   function paintBadge() {
     const el = document.getElementById("exn-collector-badge");
     if (!el || !(state.price > 0)) return;
-    el.textContent = state.asset + " " + state.timeframe + " " + state.price + " · " + state.bars.length + " bars · read-only";
+    el.textContent = state.bars.length < 20
+      ? state.asset + " " + state.timeframe + " · " + state.bars.length + " bars · reload this tab once so older candles can load · read-only"
+      : state.asset + " " + state.timeframe + " " + state.price + " · " + state.bars.length + " bars · read-only";
   }
   function applyHeader(header) {
     if (!header) return false;
