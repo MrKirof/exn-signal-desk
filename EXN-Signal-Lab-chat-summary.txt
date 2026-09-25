@@ -1,0 +1,235 @@
+EXN Signal Lab — chat summary
+This file only records what was asked and what was done in this chat.
+Nothing new was added.
+
+============================================================
+1. What you wanted
+============================================================
+
+A Windows desktop trading app for Exness, plus a Chrome extension.
+
+The extension reads the Exness web terminal and sends candles to the desktop app.
+The desktop app is the place that analyzes candles and shows a signal.
+You place the trade yourself on Exness. The app must not click Buy or Sell and must not send an order.
+
+You wanted the signal to say whether price is likely to go up or down after a candle closes, on trades about 10 to 30 minutes long.
+You gave 8 wins out of 10 as an example of the accuracy you were aiming at. That number was an example, not a measured result.
+
+You wanted the reasoning a discretionary trader uses:
+- closed candles and candlestick patterns
+- support and resistance
+- multi-timeframe alignment (1H, 15M, 5M)
+- Smart Money Concepts: order blocks, fair value gaps, liquidity zones
+- ATR for how far price usually moves
+- nearest support and resistance as targets
+- Fibonacci extension
+- three target levels: nearer, middle, farther
+- a visual projection (green up, red down) that moves with the live price
+- spread, bid for a sell, ask for a buy
+- risk from account balance: stop distance to lot size
+- a warning after several losses
+- a scanner across pairs, not only EURUSD
+- news / high-volatility warning so a bad market can say stand aside
+- win/loss notes so later signals can take those conditions into account
+- older candles kept, then the new closed candle compared with that history
+- one pairing token already set in both the EXE and the extension, so it does not have to be pasted every time
+
+You also asked, later, for order-flow / footprint / depth-of-market, a trained transformer or reinforcement-learning model, GPU inference, cloud calculation, and statistical arbitrage between pairs.
+Those were not built. See section 5.
+
+UI notes you gave:
+- English
+- dark trading terminal
+- at one point a black-hole / galaxy theme
+- later a control-center layout: signal in the center, timeframe matrix on the left, SMC on the right, price tape at the bottom, risk calculator
+- the chart should not lag
+- the extension icon should open a small status popup
+
+You rejected a huge zip of duplicated Electron files. You wanted one portable EXE you can run, and a separate extension zip.
+
+============================================================
+2. What the app is
+============================================================
+
+Name: EXN Signal Lab
+Latest desktop build in this chat: 4.3.3
+Latest extension in this chat: 3.9.1
+Source: https://github.com/MrKirof/exn-signal-desk
+Release: https://github.com/MrKirof/exn-signal-desk/releases/tag/v4.3.3
+
+Files:
+- EXN-Signal-Lab-portable.exe
+  https://github.com/MrKirof/exn-signal-desk/releases/download/v4.3.3/EXN-Signal-Lab-portable.exe
+- exn-collector.zip
+  https://github.com/MrKirof/exn-signal-desk/releases/download/v4.3.3/exn-collector.zip
+
+The EXE is the running app. It is about 100 MB because Electron is inside it.
+The trading rules are a few megabytes of that file.
+Your candle file is not inside the EXE.
+
+There is no Python backend, no FastAPI server, no port 8000, and no cloud server.
+GitHub only stores the source and the downloadable EXE. It does not run while you trade.
+
+When the EXE is open it listens on 127.0.0.1:8090.
+That address is only this PC. It is not a website.
+Closing the EXE closes that address.
+
+The extension sends candles only to http://127.0.0.1:8090.
+A shared local token is already in both 4.3.3 files:
+exn_local_9c2e7a41b6d84f0e8a1c5d73e0b64f2a
+An empty token is still rejected.
+This token is not a secret. It only exists so the local app and the extension match without pasting.
+Anyone who has the zip can see it. The receiver still refuses any other machine, because it binds to 127.0.0.1 only.
+
+Candle storage on your PC:
+%APPDATA%\EXN Signal Lab\desk-data\tape.sqlite
+The window reads the latest quote from memory.
+SQLite is written in a batch, about every 15 seconds, in WAL mode.
+synchronous=OFF was not used.
+
+The window repaints a live tick at most about every 150 ms.
+The chart is drawn on a canvas, not TradingView lightweight-charts.
+
+============================================================
+3. How a quote is supposed to move
+============================================================
+
+1. You open the Exness web terminal in Chrome and leave the chart open.
+2. The extension, loaded unpacked from exn-collector.zip, reads that tab.
+3. It does not click Buy or Sell.
+4. It posts the candle snapshot to 127.0.0.1:8090 with the token.
+5. The EXE keeps the quote in memory and shows it.
+6. The signal math runs inside the EXE window, on closed candles.
+7. It shows LONG, SHORT, or WAIT, plus stop and target levels.
+8. You decide whether to trade. The app does not.
+
+The extension popup reads /api/extension-status from the same local EXE and shows pair, direction, Optimal / Risky / Avoid, and two targets.
+It does not show a confidence percent.
+The desktop app posts that status. The popup does not calculate its own signal.
+
+Host check: the extension may only treat a real Exness terminal host as the page.
+A lookalike host such as exness.com.evil.example is rejected.
+The page host comes from the browser tab, not from a hostname written inside the candle payload.
+
+Label rule that was locked in this chat:
+- Fixture data stays "Fixture · test".
+- Unknown data stays "Unverified".
+- Do not show "Live Exness" only because a packet arrived at /api/collector.
+- EXNESS_BROWSER_CAPTURE_VERIFIED stays false until a real closed candle from your Exness page is matched by symbol, timeframe, timestamp, and OHLC.
+- That match was not completed in this chat. The flag was not turned on.
+
+Your screenshot showed price 1.13706 and later 1.13722, the same number as the Exness window, with the word Unverified.
+That means a price arrived. It does not mean the app stamped it as verified live Exness.
+The chart on the desk showed two wide candles. The Exness window next to it showed the normal chart.
+The desk did not have the older candles.
+
+============================================================
+4. Signal rules that are in the EXE
+============================================================
+
+These are deterministic candle rules, not a trained model.
+
+- Direction is LONG, SHORT, or WAIT.
+- A new signal is taken from a candle after that candle closes.
+- WAIT is used when there are not enough closed bars, or the rules do not agree.
+- The 1H / 15M / 5M matrix is built by bucketing the closed candles the desk already has.
+  If the feed is only 1-minute bars, a higher timeframe that does not have enough closed bars stays WAIT.
+- SMC notes: order block, fair value gap, liquidity pool. If those bars are not present, the panel says they are not on these candles.
+- High ATR or a high-impact news flag can show a stand-aside warning and suppress the signal.
+- Targets, when a LONG or SHORT exists:
+  - nearer level from 1 x ATR and the nearest minor support or resistance
+  - middle level from a 1.618 extension or the session high or low
+  - farther level from a 1H order block when that block exists
+- These are measured prices. They are not probabilities. 90 / 60 / 30 was not shown.
+- A vertical bar tracks the live price between the anchor and the far target.
+- Lot size uses balance, risk percent, and stop distance. It does not send an order.
+- Three paper losses pause the paper desk for 15 minutes. That is not a 24-hour lock.
+- Win and Loss buttons store a local note. They do not change the signal math.
+- Mean line: distance of the last close from the mean of the closed candles on screen.
+  "Stretched" is not a promise that price will return.
+- Depth line: bid and ask if they arrived. Pending lot size is not in the feed. No footprint is drawn.
+- Radar colors the pairs that already have a feed. It does not open 20 broker sockets.
+- No confidence percentage is shown.
+
+There is no trained model in the EXE.
+No .pt, .onnx, or other weight file was ever provided.
+PyTorch, TensorFlow, Informer, Autoformer, and reinforcement learning were not added.
+An untrained network was not added, because it would output an unmeasured guess.
+
+Order flow, footprint, and depth-of-market were not added.
+The extension does not receive the pending-lot ladder from Exness.
+
+Cloud, AWS, Google Cloud, and an AMD GPU path were not added.
+The signal stays on this PC.
+
+Statistical arbitrage between two pairs was not added.
+The extension sends the chart that is open, not a synchronized second pair.
+
+============================================================
+5. What failed, in the order you saw it
+============================================================
+
+- An early download was a workspace zip, about 359 MB compressed and about 722 MB unzipped.
+  It was not a market database. The same Electron app was copied several times
+  (unpacked Windows build, Desk.exe, another zip, plus DLLs).
+  The actual app code in that zip was a few megabytes.
+- The portable EXE is one copy of that app, about 100 MB. It is not the 700 MB zip squeezed down.
+- The EXE once failed to open because tape.mjs was missing from the package. That was fixed before 4.3.3.
+- Writing every tick straight to SQLite froze the window. Writes were moved to a memory buffer and a batch.
+- The chart was already a canvas. It was still repainting on every tick. Repaint was limited to about 150 ms.
+- You had to paste a token again after each extension reload.
+  4.3.3 puts the same local token in the EXE and the extension so a paste is not required.
+  The old EXE does not know that token. Both 4.3.3 files have to be the ones that are installed.
+- The desk chart kept showing two candles made from ticks after the extension connected.
+  The older candles visible on the Exness chart were not copied.
+  Cause that was found in code: a list shaped as time, open, high, low, close was dropped by the page hook.
+  3.9.0 / 3.9.1 tries to keep that shape.
+  Your later screenshot, after that change, still showed two candles.
+  So either the new extension was not the one loaded, the Exness tab was not reloaded after the extension loaded,
+  or Exness did not send the old candles in that shape.
+  The app will not invent the missing candles.
+  Without those closed candles the signal stays WAIT. That part is intentional.
+- "Live Exness" was not turned on. The label stayed Unverified on purpose.
+- No backtest in this chat produced a measured 8-out-of-10 result on your Exness account.
+  Synthetic or fixture candles were not to be shown as real performance.
+
+============================================================
+6. What you do on the PC for the last build
+============================================================
+
+1. Close every old EXN Signal Lab window.
+2. Run the 4.3.3 portable EXE. Do not run an older EXE.
+3. Remove the old extension at chrome://extensions.
+4. Unzip exn-collector.zip from the 4.3.3 release and Load unpacked that folder.
+5. Do not type a token. Do not type a URL. Both already point at http://127.0.0.1:8090 and the shared token.
+6. Reload the Exness tab once, with the extension already installed, and leave that chart open.
+7. Do not click Buy or Sell for the app. The app never does that.
+8. If the desk still shows two candles, the old bars did not arrive. WAIT is then the correct signal.
+9. Match any candle you do see against the terminal: symbol, timeframe, timestamp, open, high, low, close.
+   Until that match is done, the app should keep saying Unverified, not Live Exness.
+
+============================================================
+7. Locked safety rules from this chat
+============================================================
+
+- Read-only. No order, no trade API, no Buy/Sell click, no account password, no broker API key.
+- Do not call a fixture or a synthetic series a live Exness candle.
+- Do not show an uncalibrated win-rate or confidence percent.
+- Do not claim the signal is profitable.
+- Do not fill missing history with made-up candles.
+- Fail closed if the token is missing or wrong.
+- Do not give the token out from an open endpoint. The 4.3.3 shared token is compiled into both programs instead. That was done because you asked to stop pasting it.
+
+============================================================
+8. Your concept, stated without the implementation
+============================================================
+
+Build a Windows EXE and a Chrome extension for Exness.
+
+The extension only reads the open Exness chart and sends candles to the EXE on this PC.
+The EXE keeps those candles, including the ones already on the chart before the latest tick.
+When a new candle closes, compare it with that history: pattern, support, resistance, higher timeframes, ATR, and the target levels.
+Show LONG, SHORT, or WAIT, the stop, and how far price would have to move.
+Show the lot size for the balance and risk percent you type.
+Do not place the trade.
+If the old candles are not actually in the file, do not pretend you know where the next candle will go.
