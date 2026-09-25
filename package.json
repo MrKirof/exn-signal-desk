@@ -1,6 +1,6 @@
 {
   "name": "app-builder-workspace",
-  "version": "4.2.2",
+  "version": "4.2.3",
   "description": "EXN Signal Lab desktop. Local signal desk. Does not place orders.",
   "author": "EXN Signal Lab",
   "private": true,

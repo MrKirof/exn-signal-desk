@@ -11,6 +11,7 @@ import { assetMeta } from "@/lib/lab/constants";
 import { bookRisk, skillScan } from "@/lib/lab/skill-desk";
 import { readJev } from "@/lib/lab/jev";
 import { dataOrigin, originLabel } from "@/lib/lab/source-label";
+import { readSmc, riskWarning, timeframeMatrix } from "@/lib/lab/context-filters";
 import { DEFAULT_HORIZON_BARS, HORIZON_CHOICES, forecastMove } from "@/lib/lab/forecast";
 
 export function SignalPanel() {
@@ -61,6 +62,11 @@ export function SignalPanel() {
   const origin = originLabel(dataOrigin(health.source, collectorDemo), feedStale || !health.connected);
   const calibrated = shown?.calibrationStatus === "usable" || shown?.calibrationStatus === "ok";
   const lastClosed = candles.filter((c) => c.closed).at(-1);
+  const closedBars = candles.filter((c) => c.closed);
+  const smc = readSmc(closedBars);
+  const matrix = timeframeMatrix(closedBars);
+  const standAside = riskWarning(closedBars, shown?.cancelledReason?.includes("High-impact") ? shown.cancelledReason : null);
+  const riskLine = shown?.cancelledReason?.startsWith("High Risk") ? shown.cancelledReason : standAside.warning;
   const forecast = forecastMove({
     symbol: asset,
     timeframe,
@@ -123,6 +129,27 @@ export function SignalPanel() {
           {lastClosed ? ` · candle ${new Date(lastClosed.t).toISOString()}` : ""}
           {lastClosed ? ` · source ${lastClosed.source}` : ""}
         </p>
+        {riskLine ? <p className="mt-3 rounded-sm bg-put/15 px-2 py-2 text-sm text-put">{riskLine}</p> : null}
+        <div className="mt-4 grid grid-cols-3 gap-2 text-left">
+          {matrix.cells.map((cell) => (
+            <div key={cell.label} className="panel-inset px-2 py-2">
+              <p className="kicker">{cell.label}</p>
+              <p className={cn("font-mono text-sm", cell.direction === "BUY" && "text-call", cell.direction === "SELL" && "text-put", cell.direction === "WAIT" && "text-muted")}>
+                {cell.direction === "BUY" ? "LONG" : cell.direction === "SELL" ? "SHORT" : "WAIT"}
+              </p>
+              <p className="text-xs text-muted">{cell.note}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-fg">
+          {matrix.strong && dir !== "WAIT" && !riskLine ? "Strong signal. 1H, 15M, and 5M agree." : "Not a strong signal. The three timeframes do not all agree."}
+        </p>
+        <div className="mt-3 text-left text-xs text-fg">
+          <p className="kicker mb-1">Structure</p>
+          <p>{smc.orderBlock}</p>
+          <p className="mt-1">{smc.fvg}</p>
+          <p className="mt-1">{smc.liquidity}</p>
+        </div>
         <div className="mt-3 text-left">
           <div className="flex items-center justify-between gap-2">
             <p className="kicker">Move forecast</p>

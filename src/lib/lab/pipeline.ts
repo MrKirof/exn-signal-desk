@@ -26,6 +26,7 @@ import { makerGate } from "./makers.ts";
 import { uid } from "./rng.ts";
 import { atr } from "./indicators.ts";
 import { periodMs } from "./candles.ts";
+import { readSmc, riskWarning, timeframeMatrix } from "./context-filters.ts";
 import { readStructure, emptyStructure } from "./structure.ts";
 import { fxSession, emptySession } from "./session.ts";
 import { scoreConfluence, emptyConfluence } from "./confluence.ts";
@@ -366,6 +367,16 @@ export function analyze(opts: {
   } else {
     reasons.unshift(`Jev HOLD · ${jev.note}`);
   }
+  const risk = riskWarning(closed, newsWhy);
+  if (risk.suppress) {
+    if (cancelled && cancelled !== risk.warning) against.unshift(cancelled);
+    cancelled = risk.warning;
+    direction = ACTION.WAIT;
+  }
+  const smc = readSmc(closed);
+  const matrix = timeframeMatrix(closed);
+  reasons.unshift(smc.reason);
+  reasons.unshift(matrix.line);
   const lifecycle = direction === ACTION.WAIT ? "ANALYZING" : "READY";
   const pendingDirection = direction === ACTION.WAIT && isTrade(blend.direction) ? blend.direction : ACTION.WAIT;
   const planDir = direction === ACTION.WAIT ? pendingDirection : direction;
