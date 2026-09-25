@@ -13,7 +13,7 @@ import { bookRisk, skillScan } from "@/lib/lab/skill-desk";
 import { readJev } from "@/lib/lab/jev";
 import { dataOrigin, originLabel } from "@/lib/lab/source-label";
 import { readSmc, riskWarning, timeframeMatrix } from "@/lib/lab/context-filters";
-import { projectTargets } from "@/lib/lab/targets";
+import { projectTargets, trackProgress } from "@/lib/lab/targets";
 import { DEFAULT_HORIZON_BARS, HORIZON_CHOICES, forecastMove } from "@/lib/lab/forecast";
 
 export function SignalPanel() {
@@ -71,7 +71,9 @@ export function SignalPanel() {
   const riskLine = shown?.cancelledReason?.startsWith("High Risk") ? shown.cancelledReason : standAside.warning;
   const [balance, setBalance] = useState("");
   const [riskPct, setRiskPct] = useState("");
-  const projection = dir === "BUY" || dir === "SELL" ? projectTargets(dir, price > 0 ? price : (lastClosed?.close ?? 0), closedBars, assetMeta(asset).pip) : null;
+  const anchor = lastClosed?.close && lastClosed.close > 0 ? lastClosed.close : price;
+  const projection = dir === "BUY" || dir === "SELL" ? projectTargets(dir, anchor, closedBars, assetMeta(asset).pip) : null;
+  const progress = projection ? trackProgress(projection, price > 0 ? price : anchor) : 0;
   const equity = Number(balance || settings.bankroll);
   const pct = Number(riskPct || String(settings.riskPercent * 100)) / 100;
   const stopForLot = shown?.stopPrice && shown.stopPrice > 0 ? shown.stopPrice : projection ? (dir === "BUY" ? projection.price - projection.atr : projection.price + projection.atr) : 0;
@@ -160,28 +162,27 @@ export function SignalPanel() {
         </p>
         {riskLine ? <p className="mt-3 rounded-sm bg-put/15 px-2 py-2 text-sm text-put">{riskLine}</p> : null}
         {projection ? (
-          <div className="mt-3 text-left">
-            <p className="kicker mb-2">{projection.side === "BUY" ? "Long projection" : "Short projection"}</p>
-            <div className="relative h-3 overflow-hidden rounded-full bg-white/10">
+          <div className="mt-3 flex items-stretch gap-3 text-left">
+            <div className="relative h-44 w-4 overflow-hidden rounded-full bg-white/10">
               <div
-                className="absolute inset-y-0 w-2/3"
+                className="absolute inset-x-0 bottom-0 top-0"
                 style={{
-                  background: projection.side === "BUY" ? "#22c55e" : "#ef4444",
-                  left: projection.side === "BUY" ? "0" : "auto",
-                  right: projection.side === "BUY" ? "auto" : "0",
+                  background: projection.side === "BUY"
+                    ? "linear-gradient(to top, #39f3a6 0%, #39f3a6 28%, rgba(57,243,166,0.45) 58%, rgba(57,243,166,0.15) 100%)"
+                    : "linear-gradient(to top, rgba(255,77,109,0.15) 0%, rgba(255,77,109,0.45) 42%, #ff4d6d 72%, #ff4d6d 100%)",
                 }}
               />
-              <div className="absolute inset-y-0 w-px bg-white" style={{ left: projection.side === "BUY" ? "38%" : "62%" }} />
+              <div className="absolute inset-x-0 h-0.5 bg-white" style={{ bottom: `${Math.round(progress * 100)}%` }} />
             </div>
-            <div className="mt-2 flex justify-between font-mono text-xs">
-              <span>{projection.side === "BUY" ? "Now" : "Target 2"} {fmtPx(asset, projection.side === "BUY" ? projection.price : projection.target2)}</span>
-              <span>Target 1 {fmtPx(asset, projection.target1)}</span>
-              <span>{projection.side === "BUY" ? "Target 2" : "Now"} {fmtPx(asset, projection.side === "BUY" ? projection.target2 : projection.price)}</span>
+            <div className="flex flex-1 flex-col justify-between font-mono text-xs">
+              <p>{projection.target3 == null ? "Far — not on these candles" : `Far ${fmtPx(asset, projection.target3)}`}</p>
+              <p>Mid {fmtPx(asset, projection.target2)}</p>
+              <p>Near {fmtPx(asset, projection.target1)}</p>
+              <p>Now {fmtPx(asset, price > 0 ? price : projection.price)}</p>
             </div>
-            <p className="mt-1 text-xs text-muted">{projection.target1Why}</p>
-            <p className="text-xs text-muted">{projection.target2Why} ATR {fmtPx(asset, projection.atr)}.</p>
           </div>
         ) : null}
+        {projection ? <p className="mt-2 text-left text-xs text-muted">{projection.target1Why} {projection.target2Why} {projection.target3Why} These are measured levels, not probabilities.</p> : null}
         <div className="mt-3 text-left">
           <p className="kicker mb-2">Risk calculator</p>
           <div className="grid grid-cols-2 gap-2">
