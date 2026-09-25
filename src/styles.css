@@ -4,31 +4,31 @@
 
 @theme {
   --font-sans: "Figtree", "Segoe UI", system-ui, sans-serif;
-  --font-serif: "Fraunces", "Iowan Old Style", Georgia, serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-serif: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
 
-  --color-bg: #0e1116;
-  --color-surface: #161b22;
-  --color-elevated: #1e252e;
-  --color-fg: #e7edf4;
-  --color-muted: #93a0b0;
-  --color-subtle: #6d7b8c;
-  --color-accent: #e7b15a;
-  --color-accent-fg: #1c1408;
-  --color-border: color-mix(in oklab, var(--color-fg) 12%, transparent);
-  --color-border-strong: color-mix(in oklab, var(--color-fg) 28%, transparent);
-  --color-call: #3ecf8e;
-  --color-put: #ef6b6b;
-  --color-warn: #e7b15a;
+  --color-bg: #07090d;
+  --color-surface: #10151c;
+  --color-elevated: #18212b;
+  --color-fg: #e8eef6;
+  --color-muted: #8ea0b5;
+  --color-subtle: #66788c;
+  --color-accent: #7dd3c0;
+  --color-accent-fg: #06211c;
+  --color-border: color-mix(in oklab, var(--color-fg) 10%, transparent);
+  --color-border-strong: color-mix(in oklab, var(--color-fg) 22%, transparent);
+  --color-call: #3dd68c;
+  --color-put: #f07178;
+  --color-warn: #e6b450;
 
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
 
-  --shadow-panel: 0 0 0 1px var(--color-border);
-  --shadow-panel-hover: 0 0 0 1px var(--color-border-strong);
+  --shadow-panel: inset 0 0 0 1px var(--color-border);
+  --shadow-panel-hover: inset 0 0 0 1px var(--color-border-strong);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -66,7 +66,9 @@ html.light {
   body {
     margin: 0;
     min-height: 100dvh;
-    background: var(--color-bg);
+    background:
+      linear-gradient(180deg, rgba(125, 211, 192, 0.04), transparent 180px),
+      var(--color-bg);
     color: var(--color-fg);
     font-family: var(--font-sans);
     line-height: 1.5;
@@ -113,23 +115,21 @@ html.light {
 
 @layer components {
   .kicker {
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: none;
-    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-subtle);
   }
   .panel {
     background: var(--color-surface);
     box-shadow: var(--shadow-panel);
-    border-radius: 12px;
-  }
-  .panel:hover {
-    box-shadow: var(--shadow-panel-hover);
+    border-radius: 8px;
   }
   .panel-inset {
     background: var(--color-elevated);
-    border-radius: var(--radius-sm);
+    border-radius: 4px;
     box-shadow: inset 0 0 0 1px var(--color-border);
   }
   .led {
@@ -176,15 +176,15 @@ html.light {
     box-shadow: var(--shadow-panel);
   }
   .quote {
-    font-family: var(--font-serif);
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-weight: 560;
-    letter-spacing: -0.03em;
+    font-weight: 500;
+    letter-spacing: 0;
   }
   .display {
     font-family: var(--font-sans);
-    font-weight: 600;
-    letter-spacing: -0.03em;
+    font-weight: 650;
+    letter-spacing: -0.04em;
   }
 }
 

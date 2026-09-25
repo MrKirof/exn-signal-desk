@@ -98,7 +98,7 @@ export function SignalPanel() {
       ) : null}
       <div
         className={cn(
-          "rounded-md px-4 py-6 text-center",
+          "rounded-md px-3 py-4 text-center",
           dir === "BUY" && "bg-call/10",
           dir === "SELL" && "bg-put/10",
           dir === "WAIT" && "panel-inset",
@@ -106,7 +106,7 @@ export function SignalPanel() {
       >
         <p
           className={cn(
-            "display text-6xl leading-none",
+            "display text-4xl leading-none",
             dir === "BUY" && "text-call",
             dir === "SELL" && "text-put",
             dir === "WAIT" && "text-muted",

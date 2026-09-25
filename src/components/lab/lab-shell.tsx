@@ -201,7 +201,7 @@ export function LabShell() {
             </div>
             <div className="flex items-baseline gap-3">
               <span className={cn("led", ledClass)} aria-hidden />
-              <p className="quote text-lg leading-none">{fmtPx(asset, price)}</p>
+              <p className="quote text-2xl leading-none">{fmtPx(asset, price)}</p>
             </div>
             {quoteBid != null && quoteAsk != null && (
               <div className="hidden font-mono text-xs tabular-nums sm:block">
@@ -402,51 +402,55 @@ function Desk({ density }: { density: "compact" | "advanced" }) {
   const outlook = useLab((s) => s.outlook);
   const pane = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("pane");
   return (
-    <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_300px]">
+    <div className="flex flex-col gap-3">
       {pane !== "signal" && (
-      <Layer name="Chart">
-      <div className="flex min-h-[240px] flex-col gap-3">
-        <div className="panel relative h-[min(46vh,460px)] min-h-[240px] overflow-hidden">
-          <CandleChart
-            candles={candles}
-            forming={forming}
-            signal={signal}
-            outcomes={outcomes}
-            news={news}
-            trailStop={manage?.trailStop ?? 0}
-            levels={outlook?.levels ?? []}
-          />
-        </div>
-        <div className="grid gap-3 lg:grid-cols-2">
-          <ScoreBoard />
-          <UniverseBoard />
-          <AccountBox />
-          <div className="flex flex-col gap-3">
-            <PathOutlook />
-            <WireNotes />
-            <TapeReadout asset={asset} />
-          </div>
-        </div>
-        <TradeBook />
-        {density === "advanced" && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Mini
-              k="Feed"
-              v={feedClaim(health.source, collectorDemo).liveExness ? "exness" : health.source === "fixture" || collectorDemo ? "fixture" : health.source === "unverified" || health.source === "exness" ? "unverified" : health.source === "simulated" ? (health.connected ? "sim" : "wait") : health.source}
+        <Layer name="Chart">
+          <div className="panel relative h-[min(62vh,680px)] min-h-[320px] overflow-hidden">
+            <CandleChart
+              candles={candles}
+              forming={forming}
+              signal={signal}
+              outcomes={outcomes}
+              news={news}
+              trailStop={manage?.trailStop ?? 0}
+              levels={outlook?.levels ?? []}
             />
-            <Mini k="Quality" v={`${Math.round(integrity.quality * 100)}%`} />
-            <Mini k="Latency" v={`${health.workerLatencyMs.toFixed(0)}ms`} />
-            <Mini k="Equity" v={fmtUsd(risk.equity)} />
           </div>
-        )}
-      </div>
-      </Layer>
-      )}
-      {pane !== "chart" && (
-        <Layer name="Signal">
-          <SignalPanel />
         </Layer>
       )}
+      <div className={cn("grid items-start gap-3", pane !== "signal" && pane !== "chart" && "xl:grid-cols-[minmax(0,1fr)_380px]")}>
+        {pane !== "signal" && (
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="grid gap-3 lg:grid-cols-2">
+              <ScoreBoard />
+              <UniverseBoard />
+              <AccountBox />
+              <div className="flex flex-col gap-3">
+                <PathOutlook />
+                <WireNotes />
+                <TapeReadout asset={asset} />
+              </div>
+            </div>
+            <TradeBook />
+            {density === "advanced" && (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Mini
+                  k="Feed"
+                  v={feedClaim(health.source, collectorDemo).liveExness ? "exness" : health.source === "fixture" || collectorDemo ? "fixture" : health.source === "unverified" || health.source === "exness" ? "unverified" : health.source === "simulated" ? (health.connected ? "sim" : "wait") : health.source}
+                />
+                <Mini k="Quality" v={`${Math.round(integrity.quality * 100)}%`} />
+                <Mini k="Latency" v={`${health.workerLatencyMs.toFixed(0)}ms`} />
+                <Mini k="Equity" v={fmtUsd(risk.equity)} />
+              </div>
+            )}
+          </div>
+        )}
+        {pane !== "chart" && (
+          <Layer name="Signal">
+            <SignalPanel />
+          </Layer>
+        )}
+      </div>
     </div>
   );
 }
