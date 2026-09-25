@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 const code = fs.readFileSync(new URL("../../../public/extension/chart-text.js", import.meta.url), "utf8");
 vm.runInThisContext(code);
-const parseChartText = globalThis.parseChartText as (text: string) => { asset: string; timeframe: string; bar: { open: number; high: number; low: number; close: number } | null };
+const parseChartText = (globalThis as unknown as { parseChartText: (text: string) => { asset: string; timeframe: string; bar: { open: number; high: number; low: number; close: number } | null } }).parseChartText;
 
 test("the Exness chart header is read as EURUSD 1m OHLC", () => {
   const header = "EUR/USD Euro vs US Dollar · 1 · O 1.13765 H 1.13765 L 1.13762 C 1.13763 −0.00002";

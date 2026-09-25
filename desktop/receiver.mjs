@@ -69,7 +69,9 @@ export function startReceiver(opts) {
   let boundPort = opts.port ?? 8090;
   /** @type {{ at: number, body: unknown } | null} */
   let latest = null;
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let flushTimer = null;
+  /** @param {unknown} body */
   function remember(body) {
     latest = { at: Date.now(), body };
     if (flushTimer) return;

@@ -23,6 +23,7 @@ import { analyze, atr, backtest, emptyModel, PLAYBOOK, projectOutlook, similarWi
 import { applyOutcome, emptyManage, emptyRisk, expectedValue, exnessMark, exnessOpen, manageOpen, mindGate, riskBlock, settlePath, settleSignal, sizeStake, spreadFor, type TradeManage } from "@/lib/lab/layers/risk";
 import { audit, bucketStats, calibrationFactor, closeBookRow, groupPerf, loadCandles, loadModel, loadOperations, loadOutcomes, longestLose, maxDrawdown, maybeTrain, openBookRow, pinMemory, profitFactor, putCandles, putModel, putOperation, putOutcome, putPrediction, rememberPlaybook, scoreOutcomes, seedNews, usageEstimate, wipePersonal, type BookRow } from "@/lib/lab/layers/memory";
 import { postDesk } from "@/lib/lab/layers/agents";
+import { shouldReplaceSignal } from "@/lib/lab/signal-hold";
 import { DEFAULT_HORIZON_BARS, scoreForecast } from "@/lib/lab/forecast";
 import { feedClaim } from "@/lib/lab/source-label";
 
@@ -132,6 +133,7 @@ let timer: number | null = null;
 let book: MarketBook | null = null;
 let rand = mulberry32(0xc0ffee);
 let lastSignalKey = "";
+let heldDecisionBar = 0;
 let lastAsset: AssetId = "EURUSD";
 let lastTf: Timeframe = "1m";
 let lastPaperBar = "";
@@ -380,6 +382,7 @@ function simBook(asset: AssetId, tf: Timeframe) {
   });
   rand = mulberry32(0x51ed ^ asset.charCodeAt(2));
   lastSignalKey = "";
+  heldDecisionBar = 0;
   lastPaperBar = "";
   lastAsset = asset;
   lastTf = tf;
@@ -639,6 +642,7 @@ function adoptCollector(set: (p: Partial<LabSnapshot>) => void, get: () => LabSn
   lastTf = snap.timeframe;
   if (switched) {
     lastSignalKey = "";
+    heldDecisionBar = 0;
     lastPaperBar = "";
   }
   applyIncoming(
@@ -763,6 +767,7 @@ export const useLab = create<LabSnapshot & LabActions>((set, get) => ({
     lastAsset = asset;
     lastTf = timeframe;
     lastSignalKey = "";
+    heldDecisionBar = 0;
     lastPaperBar = "";
     const applyLive = (snap: SpotSnapshot) => {
       if (!book) return;
@@ -1016,14 +1021,18 @@ export const useLab = create<LabSnapshot & LabActions>((set, get) => ({
     }
     const barMs = s.timeframe === "15m" ? 15 * 60_000 : s.timeframe === "5m" ? 5 * 60_000 : 60_000;
     const barDue = !!book.forming && now - book.forming.t >= barMs;
-    if (
-      s.signal &&
-      !s.open &&
-      feedMode !== "simulated" &&
-      book.price === s.price &&
-      !barDue &&
-      now - lastScanAt < 2500 &&
-      now - lastWire < 40_000
+    const closedStamp = book.candles.length ? book.candles[book.candles.length - 1].t : 0;
+    if (feedMode === "simulated") {
+      if (s.signal && !s.open && book.price === s.price && !barDue && now - lastScanAt < 2500 && now - lastWire < 40_000) return;
+    } else if (
+      !shouldReplaceSignal({
+        mode: feedMode,
+        open: !!s.open,
+        hasSignal: !!s.signal,
+        barDue,
+        closedBarT: closedStamp,
+        heldBarT: heldDecisionBar,
+      })
     ) {
       return;
     }
@@ -1083,6 +1092,7 @@ export const useLab = create<LabSnapshot & LabActions>((set, get) => ({
         next = analyzed.signal;
         tape = analyzed.signal;
         lifecycle = analyzed.signal.lifecycle;
+        heldDecisionBar = closed.at(-1)?.t ?? closedStamp;
       } else {
         tape = analyzed.signal;
       }
@@ -1145,6 +1155,7 @@ export const useLab = create<LabSnapshot & LabActions>((set, get) => ({
         lifecycle = "SETTLED";
         next = { ...next, lifecycle: "SETTLED" };
         lastSignalKey = "";
+        heldDecisionBar = 0;
       } else {
         const stopDist = Math.abs(ticket.signal.entryPrice - ticket.signal.stopPrice) || 1;
         const mark = exnessMark(ticket.signal.direction, book.price, quoteBid, quoteAsk);
@@ -1339,6 +1350,7 @@ export const useLab = create<LabSnapshot & LabActions>((set, get) => ({
       return;
     }
     lastSignalKey = "";
+    heldDecisionBar = 0;
     lastPaperBar = "";
     lastPoll = 0;
     lastWire = 0;
@@ -1368,6 +1380,7 @@ export const useLab = create<LabSnapshot & LabActions>((set, get) => ({
       return;
     }
     lastSignalKey = "";
+    heldDecisionBar = 0;
     lastPaperBar = "";
     lastPoll = 0;
     feedGen += 1;
