@@ -461,15 +461,19 @@ function UniverseBoard() {
   const setAsset = useLab((s) => s.setAsset);
   const setTimeframe = useLab((s) => s.setTimeframe);
   const tfs: Timeframe[] = ["1m", "5m", "15m"];
-  const hits = rows.filter((r) => r.direction !== "WAIT");
+  const hits = rows.filter((r) => r.direction !== "WAIT" && r.reason !== "feed unavailable");
+  const lead = [...hits].sort((a, b) => b.confluence - a.confluence)[0];
   return (
     <div className="panel p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="kicker">Universe scan</p>
+        <p className="kicker">Radar</p>
         <p className="font-mono text-xs text-muted">
-          {rows.length === 0 ? "SCAN…" : hits.length ? `${hits.length} READY` : "FLAT"}
+          {rows.length === 0 ? "SCAN…" : hits.length ? `${hits.length} not waiting` : "FLAT"}
         </p>
       </div>
+      <p className="mb-2 text-xs text-muted">
+        {lead ? `${lead.asset} ${lead.timeframe} is ${lead.direction === "BUY" ? "LONG" : "SHORT"}. No confidence number.` : "No pair is LONG or SHORT on a feed that answered."} Only these symbols are scanned. This desk does not open a socket per pair.
+      </p>
       <div className="grid grid-cols-4 gap-1 text-sm">
         <p className="kicker px-1 pb-1">Pair</p>
         {tfs.map((tf) => (
@@ -488,25 +492,29 @@ function UniverseBoard() {
             {tfs.map((tf) => {
               const row = rows.find((r) => r.asset === spec.id && r.timeframe === tf);
               const dir = row?.direction ?? "WAIT";
-              const shown = dir === "WAIT" && row?.pending && row.pending !== "WAIT" ? row.pending : dir;
+              const strong = dir !== "WAIT" && row?.grade === "strong";
+              const dead = !row || row.reason === "feed unavailable";
               const active = spec.id === asset && tf === timeframe;
               return (
                 <button
                   key={tf}
                   className={cn(
                     "h-10 rounded-sm px-1 font-mono",
-                    active && "bg-elevated",
-                    shown === "BUY" && "bg-call/10 text-call",
-                    shown === "SELL" && "bg-put/10 text-put",
-                    shown === "WAIT" && "text-muted",
+                    active && "ring-1 ring-accent",
+                    dead && "bg-elevated text-subtle",
+                    !dead && dir === "WAIT" && "bg-elevated text-muted",
+                    dir === "BUY" && strong && "bg-call text-accent-fg",
+                    dir === "BUY" && !strong && "bg-call/25 text-call",
+                    dir === "SELL" && strong && "bg-put text-white",
+                    dir === "SELL" && !strong && "bg-put/25 text-put",
                   )}
                   onClick={() => {
                     if (spec.id !== asset) setAsset(spec.id);
                     if (tf !== timeframe) setTimeframe(tf);
                   }}
-                  title={row?.reason ?? ""}
+                  title={row?.reason ?? "no feed"}
                 >
-                  {row ? (dir === "WAIT" && row.pending !== "WAIT" ? `~${row.pending}` : dir) : "…"}
+                  {dead ? "—" : dir === "BUY" ? "LONG" : dir === "SELL" ? "SHORT" : "WAIT"}
                 </button>
               );
             })}

@@ -74,10 +74,14 @@ export function SignalPanel() {
   const anchor = lastClosed?.close && lastClosed.close > 0 ? lastClosed.close : price;
   const projection = dir === "BUY" || dir === "SELL" ? projectTargets(dir, anchor, closedBars, assetMeta(asset).pip) : null;
   const progress = projection ? trackProgress(projection, price > 0 ? price : anchor) : 0;
+  const [markTick, setMarkTick] = useState(0);
   const equity = Number(balance || settings.bankroll);
   const pct = Number(riskPct || String(settings.riskPercent * 100)) / 100;
   const stopForLot = shown?.stopPrice && shown.stopPrice > 0 ? shown.stopPrice : projection ? (dir === "BUY" ? projection.price - projection.atr : projection.price + projection.atr) : 0;
   const lots = dir === "BUY" || dir === "SELL" ? sizePosition({ settings: { ...settings, bankroll: equity, riskPercent: pct }, equity, entry: price > 0 ? price : (lastClosed?.close ?? 0), stop: stopForLot, asset }) : null;
+  const pauseLeft = risk.pauseUntil > Date.now() ? risk.pauseUntil - Date.now() : 0;
+  const manualStreak = markTick >= 0 ? lossStreak() : 0;
+  const psych = pauseLeft > 0 || risk.consecutiveLosses >= 3 || manualStreak >= 3;
   const forecast = forecastMove({
     symbol: asset,
     timeframe,
@@ -199,6 +203,13 @@ export function SignalPanel() {
             {lots == null ? "No lot while the signal is WAIT." : lots.blocked ? lots.blocked : `${lots.lots.toFixed(2)} lot · risk $${lots.riskAmount.toFixed(2)}`}
           </p>
           <p className="mt-1 text-xs text-muted">Lot size uses the signal stop, or 1× ATR when the signal has no stop. It does not send an order.</p>
+          {psych ? (
+            <p className="mt-2 rounded-sm bg-put/15 px-2 py-2 text-xs text-put">
+              {pauseLeft > 0
+                ? `Three paper losses. The desk is paused for ${Math.ceil(pauseLeft / 60000)} minutes. This is not a 24-hour lock.`
+                : "Three losses in a row. Stop. The signal math is not changed."}
+            </p>
+          ) : null}
         </div>
         <div className="mt-3 text-left">
           <div className="flex items-center justify-between gap-2">
@@ -388,11 +399,43 @@ export function SignalPanel() {
         <Button className="flex-1" variant="secondary" onClick={skip} disabled={!!open}>
           {tt("skip")}
         </Button>
+        <Button className="flex-1" variant="secondary" onClick={() => { rememberMark("WIN", asset); setMarkTick((n) => n + 1); }}>
+          Win
+        </Button>
+        <Button className="flex-1" variant="secondary" onClick={() => { rememberMark("LOSS", asset); setMarkTick((n) => n + 1); }}>
+          Loss
+        </Button>
       </div>
       {!open && dir === "WAIT" ? <p className="text-xs text-muted">Paper stays off until the badge says BUY or SELL.</p> : null}
       {sizeNote ? <p className="text-xs text-muted">{sizeNote}</p> : null}
     </aside>
   );
+}
+
+function lossStreak() {
+  if (typeof localStorage === "undefined") return 0;
+  try {
+    const marks = JSON.parse(localStorage.getItem("exn-marks") || "[]") as { kind?: string }[];
+    let n = 0;
+    for (let i = marks.length - 1; i >= 0; i -= 1) {
+      if (marks[i]?.kind !== "LOSS") break;
+      n += 1;
+    }
+    return n;
+  } catch {
+    return 0;
+  }
+}
+
+function rememberMark(kind: "WIN" | "LOSS", asset: string) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    const marks = JSON.parse(localStorage.getItem("exn-marks") || "[]") as unknown[];
+    marks.push({ at: Date.now(), kind, asset });
+    localStorage.setItem("exn-marks", JSON.stringify(marks.slice(-200)));
+  } catch {
+    /* the mark is a note, not a model */
+  }
 }
 
 function TradeManager({
