@@ -1,0 +1,196 @@
+EXN SIGNAL LAB
+Purno concept + ei chat er summary
+Kichu notun idea add kora hoy nai.
+Tarikh: 25 Sep 2026
+Last build: desktop 4.3.3, extension 3.9.1
+
+============================================================
+A. TOMAR CONCEPT (jeita tumi banate cheyechile)
+============================================================
+
+1. Product ki
+- Windows desktop app (.exe), hosted website na.
+- Sathe akta Chrome Manifest V3 extension.
+- Target broker: Exness.
+- App trade place korbe na. Buy/Sell click korbe na. Order API connect korbe na.
+- App sudhu market dekhe signal dibe. Trade tumi nijei Exness terminal e nibe.
+
+2. Signal ki dibe
+- Candle close howar por direction: LONG / SHORT / WAIT.
+- Per trade roughly 10-30 minute.
+- Target example: 10 tar moddhe 8 ta profit. Eita example, measured result na.
+- Signal er sathe thakbe: entry, stop, target, karon, invalidation.
+- Buy hole Ask. Sell hole Bid. Spread hisab e thakbe.
+
+3. Analysis e ki thakbe (tomar kotha onujayi)
+- Closed candle + candlestick pattern
+- Support / resistance
+- Multi-timeframe: 1H, 15M, 5M. Tin tai same dike hole strong.
+- SMC: Order Block, Fair Value Gap (FVG), Liquidity zone
+- ATR diye volatility + koto dur move howar kotha
+- Nearest S/R ke target
+- Fibonacci extension (1.618)
+- Hybrid target:
+  L1 conservative = ATR x 1.0 + nearest minor S/R
+  L2 standard = Fib 1.618 / daily high-low
+  L3 maximum = higher TF order block
+- UI te LONG = green projection, SHORT = red projection
+- Live price move hole projection bar update
+- Market filter: ATR onek high ba high-impact news hole High Risk - Avoid
+- News / sentiment warning
+- Risk calculator: balance + risk % + SL distance = lot size
+- 3 ta loss por por hole warning (revenge trading bondho)
+- Multi-pair radar / heatmap
+- Win/Loss mark kore condition save
+- Purono candle history rekhe notun close candle er sathe compare
+
+4. Data kivabe asbe
+- Exness web terminal Chrome e khola thakbe.
+- Extension read-only capture korbe. Order dibe na.
+- Candle desktop app e pathabe: 127.0.0.1:8090
+- App local SQLite (tape.sqlite, WAL) te rakhbe.
+- Live tick age memory te, disk e batch write.
+- Public / demo / fixture / Exness data alada label.
+- Live Exness label taboi, jokhon asol Exness page er closed candle symbol + timeframe + timestamp + OHLC mile.
+- Fixture ke Live Exness bola jabe na.
+
+5. UI
+- English
+- Dark professional terminal
+- Age blackhole-galaxy theme chaowa hoyechilo
+- Pore control-center: bam e confirmation matrix, majhe main signal + projection, dan e SMC, niche price tape, risk calculator
+- Chart lagless hote hobe
+- Extension icon e mini dashboard popup
+
+6. Packaging
+- Akta portable EXE
+- Alada extension zip
+- Replit / hosted site dorkar nai
+- GitHub sudhu source + download. Runtime na.
+
+7. Pore extra ja chaowa hoyechilo (build hoy nai)
+- Order flow / Footprint / DOM
+- Transformer / RL / PyTorch trained model
+- AMD GPU inference
+- Cloud-hybrid backend
+- Statistical arbitrage / pair mean-reversion live two-feed
+Eigula chat e ask kora hoyechilo. Implementation e bose nai.
+
+============================================================
+B. EI CHAT E KI HOYECHILO (summary, chronology)
+============================================================
+
+Start:
+- Drive theke ager project / report / Replit build ana.
+- Electron desktop + MV3 collector e rebuild.
+- Blackhole theme, English UI, chart/scan fix.
+
+Safety lock (chat e bar bar confirm):
+- Manual signal tool.
+- Auto-trade / order path remove.
+- Confidence % na dekhano.
+- Lookahead backtest na.
+- Fake profitability claim na.
+- Token empty hole reject.
+- Collector host tab URL theke, payload hostname theke na.
+
+Build line (mukhyo version):
+- 4.2.x: data-manager buffer, WAL batch, SMC/MTF/risk, projection, control-center UI
+- 4.2.8: radar colors, Win/Loss note, 3-loss warning
+- 4.2.9: 150ms paint throttle, 15s disk flush
+- 4.3.0: extension popup /api/extension-status
+- 4.3.1: mean-stretch + depth not-in-feed line
+- 4.3.2: collector OHLC batch keep (history shape)
+- 4.3.3: shared local token EXE + extension e
+
+Boro confusion:
+- 359MB Drive zip (unzip ~722MB) database chilo na. Same Electron app 3-4 bar copy + DLL + skills. Asol app code kichu MB.
+- Portable EXE ~100MB = Electron runtime + app. tape.sqlite EXE er vitore nai. PC te toiri hoy.
+
+Tomar screenshot e ja dekhano:
+- Price Exness er sathe mile (1.13706, pore 1.13722)
+- Label: Unverified
+- Desk chart e 2 ta chawra candle
+- Exness window e normal chart
+- Signal: WAIT, Avoid, not enough closed bars
+- Token bar bar set korte hoto (4.3.3 te shared token dewa)
+
+History copy fail:
+- Hook age [time,open,high,low,close] list felto.
+- 3.9.x te oita dhorar try kora hoy.
+- Tar porer screenshot e o 2 candle.
+- Possible: notun extension load hoy nai, tab reload hoy nai, othoba Exness oi shape e old bars pathay nai.
+- Missing candle baniye pattern dekhano hoy nai. Tai WAIT.
+
+============================================================
+C. AKHON JE SYSTEM TA ASE
+============================================================
+
+Repo: https://github.com/MrKirof/exn-signal-desk
+Release: https://github.com/MrKirof/exn-signal-desk/releases/tag/v4.3.3
+
+Download EXE:
+https://github.com/MrKirof/exn-signal-desk/releases/download/v4.3.3/EXN-Signal-Lab-portable.exe
+
+Download Extension:
+https://github.com/MrKirof/exn-signal-desk/releases/download/v4.3.3/exn-collector.zip
+
+Architecture:
+Chrome Exness tab -> MV3 extension (read-only) -> http://127.0.0.1:8090 (EXE khola thakle) -> memory quote + tape.sqlite -> window JS signal engine -> LONG / SHORT / WAIT
+
+Local token (4.3.3):
+exn_local_9c2e7a41b6d84f0e8a1c5d73e0b64f2a
+Empty token reject.
+Bind: 127.0.0.1 only.
+
+Storage:
+%APPDATA%\EXN Signal Lab\desk-data\tape.sqlite
+WAL, batch ~15s, synchronous NORMAL.
+
+Python backend nai. Port 8000 nai. Cloud nai. Trained model nai.
+
+Signal engine (deterministic):
+- closed candle only
+- MTF bucket from existing bars
+- SMC if bars allow
+- ATR + S/R + fib targets (measured, probability na)
+- risk lot size (order pathay na)
+- radar = jei pair e feed ase
+- mean stretch = last close vs mean
+- depth = bid/ask thakle; lot ladder nai
+
+Flag:
+EXNESS_BROWSER_CAPTURE_VERIFIED = false
+Live Exness label on kora hoy nai.
+
+============================================================
+D. ONNO JAYGAY BUILD KORTE GELE KI LAGBE
+============================================================
+
+Must keep:
+1. Desktop EXE + Chrome extension.
+2. Extension read-only. No Buy/Sell.
+3. Local receiver 127.0.0.1, public bind na.
+4. Token required, empty reject.
+5. Exness history candle desk e copy hote hobe. Tab already open thakle history miss hoy. Hook document_start + tab reload. Canvas chart theke old OHLC pora jay na. Network/history payload dhorte hobe.
+6. Notun close candle vs stored history compare kore signal.
+7. 2-3 candle thakle WAIT. Fake history banaano jabe na.
+8. Source label: Fixture / Unverified / Live Exness alada.
+9. Confidence % dekhano jabe na jodi measure na thake.
+10. English UI.
+
+Main unsolved problem ei chat e:
+Exness terminal e old candles ase, desk e ashe na.
+Eita na thik hole trader-style pattern analysis possible na.
+
+============================================================
+E. TOMAR CONCEPT AK LAINE
+============================================================
+
+Exness chart theke asol candle history + live close
+PC te local EXE te store
+Notun candle close hole history + S/R + MTF + ATR + SMC diye
+LONG / SHORT / WAIT + SL/TP + lot size dekhabe
+Trade tumi nijei Exness e nibe
+App order dibe na
+Old candle na thakle dike claim korbe na
