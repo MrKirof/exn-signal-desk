@@ -32,10 +32,11 @@ export function trustedTabUrl(sender) {
   if (!tabUrl) return "";
   const tabHost = hostnameFromUrl(tabUrl);
   if (!tabHost) return "";
+  if (!isExnessTerminalHost(tabHost)) return tabUrl;
   const frameUrl = sender && typeof sender.url === "string" ? sender.url : "";
   if (frameUrl) {
     const frameHost = hostnameFromUrl(frameUrl);
-    if (!frameHost || frameHost !== tabHost) return "";
+    if (!frameHost || !isExnessTerminalHost(frameHost)) return "";
   }
   return tabUrl;
 }

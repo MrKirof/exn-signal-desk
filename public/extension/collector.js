@@ -2,7 +2,6 @@
 (() => {
   if (window.__exnCollector30) return;
   window.__exnCollector30 = true;
-  if (window !== window.top) return;
 
   const state = {
     asset: "",
@@ -161,65 +160,92 @@
     if (u === "15S") return "15s";
     return "1m";
   }
-  function pageText() {
-    const parts = [];
-    let n = 0;
-    const walk = (node) => {
-      if (!node || n > 20000 || parts.join(" ").length > 80000) return;
-      n += 1;
-      if (node.nodeType === 3) {
-        const bit = node.textContent || "";
-        if (bit.trim()) parts.push(bit);
-        return;
-      }
-      if (node.shadowRoot) walk(node.shadowRoot);
-      const kids = node.childNodes || [];
-      for (let i = 0; i < kids.length; i += 1) walk(kids[i]);
-    };
-    walk(document.body || document.documentElement);
-    return parts.join(" ");
+  function paintBadge() {
+    const el = document.getElementById("exn-collector-badge");
+    if (!el || !(state.price > 0)) return;
+    el.textContent = state.asset + " " + state.timeframe + " " + state.price + " · " + state.bars.length + " bars · read-only";
   }
-  function harvestDom() {
-    const text = pageText();
-    const header = typeof parseChartText === "function" ? parseChartText(text) : { asset: "", bar: null, timeframe: "" };
+  function applyHeader(header) {
+    if (!header) return false;
     if (header.asset) {
       state.asset = header.asset;
       state.assetSeen = true;
     }
     if (header.timeframe) state.timeframe = header.timeframe;
-    if (header.bar) {
-      state.price = header.bar.close;
-      const ms = barMs(state.timeframe);
-      const t = Math.floor(Date.now() / ms) * ms;
-      const row = { t, open: header.bar.open, high: header.bar.high, low: header.bar.low, close: header.bar.close, volume: 1 };
-      const last = state.bars[state.bars.length - 1];
-      if (!last || last.t !== t) state.bars.push(row);
-      else {
-        last.high = Math.max(last.high, row.high);
-        last.low = Math.min(last.low, row.low);
-        last.close = row.close;
-      }
-      if (state.bars.length > 400) state.bars.shift();
+    if (!header.bar) return false;
+    state.price = header.bar.close;
+    const ms = barMs(state.timeframe);
+    const t = Math.floor(Date.now() / ms) * ms;
+    const row = { t, open: header.bar.open, high: header.bar.high, low: header.bar.low, close: header.bar.close, volume: 1 };
+    const last = state.bars[state.bars.length - 1];
+    if (!last || last.t !== t) state.bars.push(row);
+    else {
+      last.high = Math.max(last.high, row.high);
+      last.low = Math.min(last.low, row.low);
+      last.close = row.close;
+    }
+    if (state.bars.length > 400) state.bars.shift();
+    return true;
+  }
+  function nearLast(price) {
+    if (!(state.price > 0)) return price > 0.2 && price < 500000;
+    return Math.abs(price - state.price) / state.price < 0.002;
+  }
+  function noteText(text) {
+    const raw = String(text || "").replace(/\s+/g, " ").trim();
+    if (!raw || raw.length > 180) return;
+    const header = typeof parseChartText === "function" ? parseChartText(raw) : null;
+    if (applyHeader(header)) {
+      paintBadge();
       ship(false);
       return;
     }
-    const nodes = document.querySelectorAll("[class*='bid'],[class*='ask'],[class*='price'],[class*='quote']");
-    for (const el of nodes) {
-      const t = (el.textContent || "").replace(/,/g, "");
-      const n = t.match(/\d+\.\d+/);
-      if (!n) continue;
-      const v = Number(n[0]);
-      if (!(v > 0)) continue;
-      const cls = String(el.className || "").toLowerCase();
-      if (cls.includes("bid")) state.bid = v;
-      else if (cls.includes("ask")) state.ask = v;
-      else if (!(state.price > 0)) state.price = v;
-    }
-    if (state.price > 0) {
-      foldTick(state.price);
-      ship(false);
+    const lone = raw.match(/^(?:bid|ask|sell|buy)?\s*(\d{1,6}\.\d{2,5})$/i);
+    const price = lone ? Number(lone[1]) : 0;
+    if (!(price > 0) || !state.assetSeen || !nearLast(price)) return;
+    state.price = price;
+    foldTick(price);
+    paintBadge();
+    ship(false);
+  }
+  function seedHeader() {
+    const root = document.body || document.documentElement;
+    if (!root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n = 0;
+    let buf = "";
+    while (walker.nextNode() && n < 800) {
+      n += 1;
+      const bit = (walker.currentNode.textContent || "").replace(/\s+/g, " ").trim();
+      if (!bit) continue;
+      buf = (buf + " " + bit).slice(-2400);
+      const header = typeof parseChartText === "function" ? parseChartText(buf) : null;
+      if (header && header.bar && header.asset) {
+        applyHeader(header);
+        paintBadge();
+        ship(true);
+        return;
+      }
     }
   }
-  setInterval(harvestDom, 1000);
-  setTimeout(harvestDom, 400);
+  const seenRoots = new WeakSet();
+  const observer = new MutationObserver((records) => {
+    for (let i = 0; i < records.length && i < 40; i += 1) {
+      const rec = records[i];
+      if (rec.type === "characterData") noteText(rec.target && rec.target.textContent);
+      else if (rec.target && rec.target.nodeType === 1) noteText((rec.target.textContent || "").slice(0, 180));
+    }
+  });
+  function watch(root) {
+    if (!root || seenRoots.has(root)) return;
+    seenRoots.add(root);
+    try { observer.observe(root, { subtree: true, characterData: true, childList: true }); } catch (e) {}
+  }
+  function arm() {
+    watch(document.documentElement);
+    seedHeader();
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arm, { once: true });
+  else arm();
+  setInterval(seedHeader, 2000);
 })();

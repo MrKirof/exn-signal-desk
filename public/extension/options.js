@@ -6,7 +6,7 @@ const tokenEl = document.getElementById("token");
 function paint(snap, link) {
   if (!snap || !(snap.price > 0)) {
     liveEl.textContent = link && link.ok
-      ? "Desk is linked. Reload the Exness tab once. The chart is open, but no price has been read yet."
+      ? "Desk is linked. Reload the Exness tab. A price should show here within a second, without the chart stuttering."
       : link && link.error
         ? link.error
         : "No quote yet. Open the Exness chart, then reload that tab.";

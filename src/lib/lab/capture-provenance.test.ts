@@ -78,6 +78,17 @@ test("a valid active tab supplies the host and the payload host is ignored", () 
   assert.equal(isExnessTerminalHost("my.exness.com"), true);
   assert.equal(isExnessTerminalHost("trade.exness.global"), true);
   assert.equal(isExnessTerminalHost("exness.app"), true);
+  const framed = annotateCapture(
+    { tab: { active: true, url: "https://my.exness.com/webtrading/" }, url: "https://charts.exness.com/terminal" },
+    candle,
+  );
+  assert.equal(framed.capture.fromTab, true);
+  assert.equal(framed.capture.host, "my.exness.com");
+  const foreignFrame = annotateCapture(
+    { tab: { active: true, url: "https://my.exness.com/webtrading/" }, url: "https://evil.example/trade" },
+    candle,
+  );
+  assert.equal(foreignFrame.capture.fromTab, false);
   const parsed = parseCollector(snap);
   assert.equal(parsed.ok, true);
   if (!parsed.ok) return;
