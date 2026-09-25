@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import { createDataManager } from "./data-manager.mjs";
 import { ensureToken, prepareDesktopEnv, readToken, resetToken, verifyToken } from "./pair.mjs";
 import { openTape } from "./tape.mjs";
 import { acceptKey, decodeFrame, encodeFrame } from "./ws-frame.mjs";
@@ -69,34 +70,8 @@ export async function startReceiver(opts) {
   ensureToken(opts.dataDir);
   const uiDir = path.resolve(opts.uiDir);
   const tape = await openTape(opts.dataDir);
+  const data = createDataManager({ tape, dataDir: opts.dataDir });
   let boundPort = opts.port ?? 8090;
-  /** @type {{ at: number, body: unknown } | null} */
-  let latest = null;
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  let flushTimer = null;
-  /** @param {unknown} body */
-  function remember(body) {
-    latest = { at: Date.now(), body };
-    try {
-      tape.write(body);
-    } catch {
-      /* json copy below still keeps the latest quote */
-    }
-    if (flushTimer) return;
-    flushTimer = setTimeout(() => {
-      flushTimer = null;
-      if (!latest) return;
-      try {
-        fs.mkdirSync(opts.dataDir, { recursive: true });
-        const destination = path.join(opts.dataDir, "candles.json");
-        const temporary = `${destination}.tmp`;
-        fs.writeFileSync(temporary, JSON.stringify({ at: latest.at, snapshot: latest.body }), { encoding: "utf8", mode: 0o600 });
-        fs.renameSync(temporary, destination);
-      } catch {
-        /* the live copy in memory is what the desk reads */
-      }
-    }, 400);
-  }
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -124,10 +99,13 @@ export async function startReceiver(opts) {
       }
       if (url.pathname === "/api/collector") {
         if (!verifyToken(opts.dataDir, presented)) return send(res, 401, { ok: false, error: "pair required" });
-        if (req.method === "GET") return send(res, 200, { ok: true, at: latest?.at ?? 0, snapshot: latest?.body ?? null });
+        if (req.method === "GET") {
+          const latest = data.latest();
+          return send(res, 200, { ok: true, at: latest?.at ?? 0, snapshot: latest?.body ?? null });
+        }
         if (req.method === "PUT" || req.method === "POST") {
           const body = await readBody(req);
-          remember(body);
+          data.push(body);
           return send(res, 200, { ok: true });
         }
         return send(res, 405, { ok: false, error: "method" });
@@ -208,7 +186,7 @@ export async function startReceiver(opts) {
           socket.write(encodeFrame(JSON.stringify({ ok: true })));
           continue;
         }
-        remember(msg);
+        data.push(msg);
       }
     });
     socket.on("error", () => socket.destroy());

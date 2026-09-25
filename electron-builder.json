@@ -6,6 +6,7 @@
     "desktop/main.cjs",
     "desktop/preload.cjs",
     "desktop/receiver.mjs",
+    "desktop/data-manager.mjs",
     "desktop/tape.mjs",
     "desktop/ws-frame.mjs",
     "desktop/pair.mjs",
